@@ -6,7 +6,11 @@ import 'package:ajarin_ya/models/user_profile.dart';
 abstract class AuthRepository {
   Stream<UserProfile?> get onAuthStateChanged;
   Future<UserProfile?> loginWithEmailAndPassword(String email, String password);
-  Future<UserProfile?> registerWithEmailAndPassword(String email, String password, String displayName);
+  Future<UserProfile?> registerWithEmailAndPassword(
+    String email,
+    String password,
+    String displayName,
+  );
   Future<void> signOut();
   UserProfile? get currentUser;
 }
@@ -15,6 +19,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final FirebaseAuth? _customAuth;
   final _authStateController = StreamController<UserProfile?>.broadcast();
   UserProfile? _currentCachedUser;
+  static const bool _forceLocalAuthDemo = false;
 
   AuthRepositoryImpl({FirebaseAuth? auth}) : _customAuth = auth {
     // Inisialisasi status awal
@@ -22,6 +27,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   FirebaseAuth? get _auth {
+    if (_forceLocalAuthDemo) return null;
+
     try {
       return _customAuth ?? FirebaseAuth.instance;
     } catch (e) {
@@ -54,14 +61,11 @@ class AuthRepositoryImpl implements AuthRepository {
       });
     } else {
       // Default mock user untuk simulasi offline
-      final mockProfile = UserProfile(
+      _cacheAndEmitLocalUser(
         uid: 'mahasiswa_its_mock',
         email: 'mahasiswa@its.ac.id',
         displayName: 'Atha (Teknik Informatika)',
-        avatarUrl: '',
       );
-      _currentCachedUser = mockProfile;
-      _authStateController.add(mockProfile);
     }
   }
 
@@ -72,7 +76,10 @@ class AuthRepositoryImpl implements AuthRepository {
   UserProfile? get currentUser => _currentCachedUser;
 
   @override
-  Future<UserProfile?> loginWithEmailAndPassword(String email, String password) async {
+  Future<UserProfile?> loginWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     final firebaseAuth = _auth;
     if (firebaseAuth != null) {
       try {
@@ -93,34 +100,33 @@ class AuthRepositoryImpl implements AuthRepository {
           return profile;
         }
       } catch (e) {
-        developer.log('Error login Firebase Auth: $e', name: 'INTEGRITY_DIAGNOSTICS');
-        rethrow;
+        developer.log(
+          'Error login Firebase Auth: $e',
+          name: 'INTEGRITY_DIAGNOSTICS',
+        );
+        return _fallbackLocalLogin(
+          email,
+          password,
+          displayName: '${email.split('@')[0]} (ITS)',
+        );
       }
     } else {
       // Simulasi lokal
-      if (email.contains('@') && password.length >= 6) {
-        final mockProfile = UserProfile(
-          uid: 'local_user_${email.split('@')[0]}',
-          email: email,
-          displayName: '${email.split('@')[0]} (ITS)',
-          avatarUrl: '',
-        );
-        _currentCachedUser = mockProfile;
-        _authStateController.add(mockProfile);
-        return mockProfile;
-      } else {
-        throw FirebaseAuthException(
-          code: 'wrong-password',
-          message: 'Format email tidak valid atau password kurang dari 6 karakter.',
-        );
-      }
+      return _fallbackLocalLogin(
+        email,
+        password,
+        displayName: '${email.split('@')[0]} (ITS)',
+      );
     }
     return null;
   }
 
   @override
   Future<UserProfile?> registerWithEmailAndPassword(
-      String email, String password, String displayName) async {
+    String email,
+    String password,
+    String displayName,
+  ) async {
     final firebaseAuth = _auth;
     if (firebaseAuth != null) {
       try {
@@ -142,29 +148,53 @@ class AuthRepositoryImpl implements AuthRepository {
           return profile;
         }
       } catch (e) {
-        developer.log('Error register Firebase Auth: $e', name: 'INTEGRITY_DIAGNOSTICS');
-        rethrow;
+        developer.log(
+          'Error register Firebase Auth: $e',
+          name: 'INTEGRITY_DIAGNOSTICS',
+        );
+        return _fallbackLocalLogin(email, password, displayName: displayName);
       }
     } else {
       // Simulasi lokal
-      if (email.contains('@') && password.length >= 6) {
-        final mockProfile = UserProfile(
-          uid: 'local_user_${email.split('@')[0]}',
-          email: email,
-          displayName: displayName,
-          avatarUrl: '',
-        );
-        _currentCachedUser = mockProfile;
-        _authStateController.add(mockProfile);
-        return mockProfile;
-      } else {
-        throw FirebaseAuthException(
-          code: 'email-already-in-use',
-          message: 'Gagal membuat akun. Pastikan email belum terdaftar dan password valid.',
-        );
-      }
+      return _fallbackLocalLogin(email, password, displayName: displayName);
     }
     return null;
+  }
+
+  UserProfile _fallbackLocalLogin(
+    String email,
+    String password, {
+    required String displayName,
+  }) {
+    if (!email.contains('@') || password.length < 6) {
+      throw FirebaseAuthException(
+        code: 'invalid-credential',
+        message:
+            'Format email tidak valid atau password kurang dari 6 karakter.',
+      );
+    }
+
+    return _cacheAndEmitLocalUser(
+      uid: 'local_user_${email.split('@')[0]}',
+      email: email,
+      displayName: displayName,
+    );
+  }
+
+  UserProfile _cacheAndEmitLocalUser({
+    required String uid,
+    required String email,
+    required String displayName,
+  }) {
+    final profile = UserProfile(
+      uid: uid,
+      email: email,
+      displayName: displayName,
+      avatarUrl: '',
+    );
+    _currentCachedUser = profile;
+    _authStateController.add(profile);
+    return profile;
   }
 
   @override

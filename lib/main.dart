@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:ajarin_ya/firebase_options.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/barter_view_model.dart';
 import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
@@ -7,10 +9,9 @@ import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/viewmodels/study_spot_view_model.dart';
 import 'package:ajarin_ya/views/main_navigation_shell.dart';
 
-void main() {
-  // Memastikan binding Flutter terinisialisasi secara aman
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -21,18 +22,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthViewModel>(
-          create: (_) => AuthViewModel(),
-        ),
+        ChangeNotifierProvider<AuthViewModel>(create: (_) => AuthViewModel()),
         ChangeNotifierProvider<BarterViewModel>(
           create: (_) => BarterViewModel(),
         ),
         ChangeNotifierProvider<StudySpotViewModel>(
           create: (_) => StudySpotViewModel(),
         ),
-        ChangeNotifierProvider<NotesViewModel>(
-          create: (_) => NotesViewModel(),
-        ),
+        ChangeNotifierProvider<NotesViewModel>(create: (_) => NotesViewModel()),
         ChangeNotifierProvider<QuestionViewModel>(
           create: (_) => QuestionViewModel(),
         ),
@@ -47,14 +44,10 @@ class MyApp extends StatelessWidget {
             primary: Colors.deepPurple,
             secondary: Colors.indigo,
           ),
-          appBarTheme: const AppBarTheme(
-            elevation: 0,
-            centerTitle: true,
-          ),
+          appBarTheme: const AppBarTheme(elevation: 0, centerTitle: true),
         ),
         home: const MainNavigationShell(),
       ),
     );
   }
 }
-

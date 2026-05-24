@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'dart:async';
+
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
 class QuestionForumScreen extends StatefulWidget {
   const QuestionForumScreen({super.key});
@@ -14,132 +18,311 @@ class QuestionForumScreen extends StatefulWidget {
 }
 
 class _QuestionForumScreenState extends State<QuestionForumScreen> {
-  final _questionTitleController = TextEditingController();
-  final _questionContentController = TextEditingController();
-  String _selectedTag = '📚 Fisika';
-  final List<String> _tags = ['📚 Fisika', '💻 Flutter', '🔬 Kimia', '📐 Matematika'];
+  final _searchController = TextEditingController();
   String _searchQuery = '';
+  final ImagePicker _imagePicker = ImagePicker();
+  static bool get _enableFirebaseStorageUpload => true;
+  static bool get _useFullPageQuestionForm => true;
+
+  static const List<String> _tags = [
+    'Fisika',
+    'Flutter',
+    'Kimia',
+    'Matematika',
+    'Bahasa Inggris',
+    'Umum',
+  ];
 
   @override
   void dispose() {
-    _questionTitleController.dispose();
-    _questionContentController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _showAskQuestionDialog(BuildContext context, QuestionViewModel questionViewModel, String currentUserDisplayName) {
-    showDialog(
+  Future<void> _showQuestionForm({
+    required BuildContext context,
+    required QuestionViewModel vm,
+    required String currentUserDisplayName,
+    Question? existingQuestion,
+  }) async {
+    if (_useFullPageQuestionForm) {
+      await _showQuestionFormPage(
+        context: context,
+        vm: vm,
+        currentUserDisplayName: currentUserDisplayName,
+        existingQuestion: existingQuestion,
+      );
+      return;
+    }
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final titleController = TextEditingController(
+      text: existingQuestion?.title ?? '',
+    );
+    final contentController = TextEditingController(
+      text: existingQuestion?.content ?? '',
+    );
+    final imageUrlController = TextEditingController(
+      text: existingQuestion?.imageUrl ?? '',
+    );
+    var selectedTag = existingQuestion?.tag ?? _tags.first;
+    XFile? selectedImage;
+    var isUploadingImage = false;
+
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogBuildContext, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
               title: Row(
                 children: [
-                  Icon(Icons.question_answer_outlined, color: Colors.orange.shade800),
+                  Icon(
+                    existingQuestion == null
+                        ? Icons.add_comment_outlined
+                        : Icons.edit_note,
+                    color: Colors.orange.shade800,
+                  ),
                   const SizedBox(width: 8),
-                  const Text('Tanyakan Soal Belajar', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      existingQuestion == null ? 'Posting Soal' : 'Edit Soal',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Kategori Tag Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedTag,
+                      decoration: InputDecoration(
+                        labelText: 'Topik',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: _tags
+                          .map(
+                            (tag) =>
+                                DropdownMenuItem(value: tag, child: Text(tag)),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => selectedTag = value);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Judul pertanyaan',
+                        hintText: 'Contoh: Cara debug Provider di Flutter',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: contentController,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: 'Detail soal',
+                        hintText:
+                            'Tulis konteks, error, rumus, atau bagian yang belum paham.',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: imageUrlController,
+                      decoration: InputDecoration(
+                        labelText: 'URL gambar soal (opsional)',
+                        hintText: 'Firebase Storage download URL',
+                        prefixIcon: const Icon(Icons.image_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Text('Topik:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isUploadingImage
+                                ? null
+                                : () async {
+                                    final image = await _imagePicker.pickImage(
+                                      source: ImageSource.gallery,
+                                      imageQuality: 78,
+                                    );
+                                    if (image == null) return;
+                                    setDialogState(() => selectedImage = image);
+                                  },
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: const Text('Galeri'),
                           ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedTag,
-                              items: _tags
-                                  .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12))))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    _selectedTag = val;
-                                  });
-                                }
-                              },
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isUploadingImage
+                                ? null
+                                : () async {
+                                    final image = await _imagePicker.pickImage(
+                                      source: ImageSource.camera,
+                                      imageQuality: 78,
+                                      preferredCameraDevice: CameraDevice.front,
+                                    );
+                                    if (image == null) return;
+                                    setDialogState(() => selectedImage = image);
+                                  },
+                            icon: const Icon(Icons.photo_camera_outlined),
+                            label: const Text('Kamera'),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _questionTitleController,
-                      decoration: InputDecoration(
-                        labelText: 'Judul Pertanyaan / Soal',
-                        hintText: 'Tulis garis besar kesulitan Anda...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    if (selectedImage != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.attach_file,
+                            size: 16,
+                            color: Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              selectedImage!.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _questionContentController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        labelText: 'Deskripsi Masalah secara Detail',
-                        hintText: 'Tulis detail soal, variabel yang diketahui, dan apa yang ingin ditanyakan...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                  child: const Text('Batal'),
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final title = _questionTitleController.text.trim();
-                    final content = _questionContentController.text.trim();
-                    if (title.isNotEmpty && content.isNotEmpty) {
-                      final newQuestion = Question(
-                        author: currentUserDisplayName.isNotEmpty ? currentUserDisplayName : 'Mahasiswa ITS',
-                        avatar: currentUserDisplayName.isNotEmpty ? currentUserDisplayName[0].toUpperCase() : 'M',
-                        title: title,
-                        content: content,
-                        tag: _selectedTag,
-                        votes: 0,
-                        answersCount: 0,
-                        time: 'Baru Saja',
-                        isUpvoted: false,
-                        isSolved: false,
-                        replies: [],
-                      );
-                      
-                      await questionViewModel.createQuestion(newQuestion);
-                      
-                      _questionTitleController.clear();
-                      _questionContentController.clear();
-                      if (context.mounted) {
-                        Navigator.pop(dialogCtx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Pertanyaan Anda berhasil diterbitkan di forum!')),
-                        );
-                      }
-                    }
-                  },
+                ElevatedButton.icon(
+                  onPressed: isUploadingImage
+                      ? null
+                      : () async {
+                          final title = titleController.text.trim();
+                          final content = contentController.text.trim();
+                          if (title.isEmpty || content.isEmpty) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Judul dan detail soal wajib diisi.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          var imageUrl = imageUrlController.text.trim();
+                          if (selectedImage != null &&
+                              _enableFirebaseStorageUpload) {
+                            setDialogState(() => isUploadingImage = true);
+                            final uploadedUrl = await _uploadQuestionImage(
+                              selectedImage!,
+                            );
+                            if (dialogBuildContext.mounted) {
+                              setDialogState(() => isUploadingImage = false);
+                            }
+                            if (uploadedUrl != null) {
+                              imageUrl = uploadedUrl;
+                            }
+                          } else if (selectedImage != null) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Foto tidak diupload karena Firebase Storage belum tersedia. Posting dilanjutkan tanpa foto.',
+                                ),
+                              ),
+                            );
+                          }
+
+                          final now = DateTime.now().millisecondsSinceEpoch;
+                          final question =
+                              existingQuestion?.copyWith(
+                                title: title,
+                                content: content,
+                                tag: selectedTag,
+                                imageUrl: imageUrl.isEmpty ? null : imageUrl,
+                                updatedAtMs: now,
+                              ) ??
+                              Question(
+                                author: currentUserDisplayName.isNotEmpty
+                                    ? currentUserDisplayName
+                                    : 'Mahasiswa ITS',
+                                avatar: currentUserDisplayName.isNotEmpty
+                                    ? currentUserDisplayName[0].toUpperCase()
+                                    : 'M',
+                                title: title,
+                                content: content,
+                                tag: selectedTag,
+                                imageUrl: imageUrl.isEmpty ? null : imageUrl,
+                                time: 'Baru Saja',
+                                createdAtMs: now,
+                                updatedAtMs: now,
+                                replies: [],
+                              );
+
+                          if (!dialogBuildContext.mounted) return;
+                          Navigator.pop(dialogCtx);
+                          if (existingQuestion == null) {
+                            await vm.createQuestion(question);
+                          } else {
+                            await vm.updateQuestion(question);
+                          }
+
+                          if (!context.mounted) return;
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                existingQuestion == null
+                                    ? 'Pertanyaan berhasil diposting.'
+                                    : 'Pertanyaan berhasil diperbarui.',
+                              ),
+                            ),
+                          );
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade800,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Tanyakan'),
+                  icon: Icon(
+                    existingQuestion == null ? Icons.send : Icons.save,
+                  ),
+                  label: Text(
+                    isUploadingImage
+                        ? 'Upload...'
+                        : existingQuestion == null
+                        ? 'Posting'
+                        : 'Simpan',
+                  ),
                 ),
               ],
             );
@@ -147,32 +330,160 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
         );
       },
     );
+
+    titleController.dispose();
+    contentController.dispose();
+    imageUrlController.dispose();
+  }
+
+  Future<String?> _uploadQuestionImage(XFile image) async {
+    try {
+      final bytes = await image.readAsBytes();
+      final safeName = image.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final storage = FirebaseStorage.instance;
+      storage.setMaxUploadRetryTime(const Duration(seconds: 6));
+      storage.setMaxOperationRetryTime(const Duration(seconds: 6));
+
+      final ref = storage.ref().child(
+        'question_attachments/${DateTime.now().millisecondsSinceEpoch}_$safeName',
+      );
+
+      final uploadTask = ref.putData(
+        bytes,
+        SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),
+      );
+      final task = await uploadTask.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () async {
+          await uploadTask.cancel();
+          throw TimeoutException('Firebase Storage upload timeout');
+        },
+      );
+      return task.ref.getDownloadURL().timeout(const Duration(seconds: 6));
+    } on TimeoutException {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Upload gambar terlalu lama. Pertanyaan tetap diposting tanpa foto.',
+          ),
+        ),
+      );
+      return null;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Upload gambar gagal. Pertanyaan tetap diposting tanpa foto. Detail: $e',
+          ),
+        ),
+      );
+      return null;
+    }
+  }
+
+  Future<void> _showQuestionFormPage({
+    required BuildContext context,
+    required QuestionViewModel vm,
+    required String currentUserDisplayName,
+    Question? existingQuestion,
+  }) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final result = await Navigator.of(context).push<_QuestionFormResult>(
+      MaterialPageRoute(
+        builder: (_) => _QuestionFormPage(
+          tags: _tags,
+          currentUserDisplayName: currentUserDisplayName,
+          existingQuestion: existingQuestion,
+        ),
+      ),
+    );
+
+    if (!context.mounted || result == null) return;
+
+    if (existingQuestion == null) {
+      await vm.createQuestion(result.question);
+    } else {
+      await vm.updateQuestion(result.question);
+    }
+
+    if (!context.mounted) return;
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.skippedLocalImage
+              ? 'Pertanyaan tersimpan. Foto lokal belum tersimpan karena upload Storage gagal atau belum aktif.'
+              : existingQuestion == null
+              ? 'Pertanyaan berhasil diposting.'
+              : 'Pertanyaan berhasil diperbarui.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    QuestionViewModel vm,
+    Question question,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Pertanyaan'),
+        content: const Text(
+          'Pertanyaan dan semua jawabannya akan dihapus. Lanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    await vm.deleteQuestion(question.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pertanyaan berhasil dihapus.')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final questionViewModel = Provider.of<QuestionViewModel>(context);
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    final currentUserDisplayName = authViewModel.user?.displayName ?? 'Mahasiswa ITS';
+    final questionViewModel = context.read<QuestionViewModel>();
+    final currentUserDisplayName = context.select<AuthViewModel, String>(
+      (authViewModel) => authViewModel.user?.displayName ?? 'Mahasiswa ITS',
+    );
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Forum Diskusi Soal', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Forum Diskusi Soal',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: Colors.orange.shade800,
         iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: () => questionViewModel.loadQuestions(),
-          )
+            onPressed: questionViewModel.loadQuestions,
+          ),
         ],
       ),
       body: Column(
         children: [
-          // Banner Modul Anggota 3
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: Colors.orange.shade50,
             child: Row(
@@ -181,72 +492,79 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Modul 3 Aktif (CRUD Firestore): Forum tanya jawab dinamis oleh Anggota 3 (SDG 4).',
-                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                    'Track Academic Discussion: CRUD pertanyaan, CRUD jawaban, realtime Firestore snapshot, dan lampiran gambar via URL Storage.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade900,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Search Bar
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: TextField(
-              onChanged: (val) {
-                setState(() {
-                  _searchQuery = val.toLowerCase();
-                });
-              },
+              controller: _searchController,
+              onChanged: (value) =>
+                  setState(() => _searchQuery = value.toLowerCase()),
               decoration: InputDecoration(
-                hintText: 'Cari topik diskusi atau pertanyaan...',
+                hintText: 'Cari judul, topik, isi, atau penulis...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
           ),
-
-          // Questions List
           Expanded(
             child: Consumer<QuestionViewModel>(
               builder: (context, vm, child) {
                 final state = vm.state;
                 if (state is ResultStateLoading) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.orange));
-                } else if (state is ResultStateError) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  );
+                }
+                if (state is ResultStateError<List<Question>>) {
                   return Center(
-                    child: Text('Gagal memuat pertanyaan: ${(state as ResultStateError).message}'),
+                    child: Text('Gagal memuat forum: ${state.message}'),
                   );
                 }
 
-                final questions = vm.questions;
-                final filteredQuestions = questions.where((q) {
-                  return q.title.toLowerCase().contains(_searchQuery) ||
-                      q.content.toLowerCase().contains(_searchQuery) ||
-                      q.tag.toLowerCase().contains(_searchQuery) ||
-                      q.author.toLowerCase().contains(_searchQuery);
+                final questions = vm.questions.where((q) {
+                  final haystack =
+                      '${q.title} ${q.content} ${q.tag} ${q.author}'
+                          .toLowerCase();
+                  return haystack.contains(_searchQuery);
                 }).toList();
 
-                if (filteredQuestions.isEmpty) {
+                if (questions.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.question_mark_rounded, size: 64, color: Colors.grey.shade300),
-                        const SizedBox(height: 12),
+                        Icon(
+                          Icons.question_answer_outlined,
+                          size: 64,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 10),
                         Text(
                           'Belum ada pertanyaan yang cocok.',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          style: TextStyle(color: Colors.grey.shade600),
                         ),
                       ],
                     ),
@@ -254,164 +572,43 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                 }
 
                 return ListView.builder(
-                  itemCount: filteredQuestions.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                  itemCount: questions.length,
                   itemBuilder: (ctx, idx) {
-                    final q = filteredQuestions[idx];
-                    return GestureDetector(
-                      onTap: () {
-                        // Navigate to Answer Question screen
+                    final question = questions[idx];
+                    return _QuestionCard(
+                      question: question,
+                      onOpen: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AnswerQuestionScreen(
-                              questionId: q.id,
-                            ),
+                            builder: (context) =>
+                                AnswerQuestionScreen(questionId: question.id),
                           ),
                         );
                       },
-                      child: Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: Colors.orange.shade100,
-                                    radius: 16,
-                                    child: Text(q.avatar, style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(q.author, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                        Text('${q.time} • ${q.tag}', style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
-                                      ],
-                                    ),
-                                  ),
-                                  if (q.isSolved)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.check_circle, color: Colors.green.shade700, size: 12),
-                                          const SizedBox(width: 4),
-                                          Text('Terjawab', style: TextStyle(color: Colors.green.shade700, fontSize: 9, fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                                    onPressed: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text('Hapus Pertanyaan'),
-                                          content: const Text('Apakah Anda yakin ingin menghapus pertanyaan ini?'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx, false),
-                                              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-                                            ),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx, true),
-                                              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                                            )
-                                          ],
-                                        ),
-                                      );
-
-                                      if (confirm == true) {
-                                        await vm.deleteQuestion(q.id);
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Pertanyaan berhasil dihapus.')),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  )
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                q.title,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, height: 1.3),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                q.content,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: Colors.grey.shade700, fontSize: 12, height: 1.4),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  // Upvotes button
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        constraints: const BoxConstraints(),
-                                        padding: EdgeInsets.zero,
-                                        icon: Icon(
-                                          Icons.thumb_up_alt,
-                                          color: q.isUpvoted ? Colors.orange.shade800 : Colors.grey.shade400,
-                                          size: 16,
-                                        ),
-                                        onPressed: () {
-                                          vm.toggleUpvote(q);
-                                        },
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '${q.votes} Upvotes',
-                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                                      ),
-                                    ],
-                                  ),
-                                  // Answers count & CTA
-                                  Row(
-                                    children: [
-                                      Icon(Icons.comment_outlined, color: Colors.grey.shade400, size: 16),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '${q.answersCount} Solusi',
-                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Icon(Icons.arrow_forward_ios_rounded, color: Colors.orange.shade800, size: 12),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
+                      onEdit: () => _showQuestionForm(
+                        context: context,
+                        vm: vm,
+                        currentUserDisplayName: currentUserDisplayName,
+                        existingQuestion: question,
                       ),
+                      onDelete: () => _confirmDelete(context, vm, question),
+                      onUpvote: () => vm.toggleUpvote(question),
                     );
                   },
                 );
               },
             ),
-          )
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAskQuestionDialog(context, questionViewModel, currentUserDisplayName),
+        onPressed: () => _showQuestionForm(
+          context: context,
+          vm: questionViewModel,
+          currentUserDisplayName: currentUserDisplayName,
+        ),
         backgroundColor: Colors.orange.shade800,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_comment),
@@ -421,3 +618,551 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   }
 }
 
+class _QuestionFormResult {
+  final Question question;
+  final bool skippedLocalImage;
+
+  const _QuestionFormResult({
+    required this.question,
+    required this.skippedLocalImage,
+  });
+}
+
+class _QuestionFormPage extends StatefulWidget {
+  final List<String> tags;
+  final String currentUserDisplayName;
+  final Question? existingQuestion;
+
+  const _QuestionFormPage({
+    required this.tags,
+    required this.currentUserDisplayName,
+    this.existingQuestion,
+  });
+
+  @override
+  State<_QuestionFormPage> createState() => _QuestionFormPageState();
+}
+
+class _QuestionFormPageState extends State<_QuestionFormPage> {
+  final _titleController = TextEditingController();
+  final _contentController = TextEditingController();
+  final _imageUrlController = TextEditingController();
+  final _imagePicker = ImagePicker();
+  static const bool _enableFirebaseStorageUpload = true;
+
+  late String _selectedTag;
+  XFile? _selectedImage;
+  bool _isSubmitting = false;
+
+  bool get _isEditing => widget.existingQuestion != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final question = widget.existingQuestion;
+    _selectedTag = question?.tag ?? widget.tags.first;
+    _titleController.text = question?.title ?? '';
+    _contentController.text = question?.content ?? '';
+    _imageUrlController.text = question?.imageUrl ?? '';
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    _imageUrlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final image = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 78,
+      preferredCameraDevice: CameraDevice.front,
+    );
+    if (image == null || !mounted) return;
+    setState(() => _selectedImage = image);
+  }
+
+  Future<void> _submit() async {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    var imageUrl = _imageUrlController.text.trim();
+
+    if (title.isEmpty || content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Judul dan detail soal wajib diisi.')),
+      );
+      return;
+    }
+
+    var skippedLocalImage = false;
+    if (_selectedImage != null && _enableFirebaseStorageUpload) {
+      setState(() => _isSubmitting = true);
+      final uploadedUrl = await _uploadSelectedImage(_selectedImage!);
+      if (!mounted) return;
+      if (uploadedUrl != null) {
+        imageUrl = uploadedUrl;
+      } else {
+        skippedLocalImage = true;
+        setState(() => _isSubmitting = false);
+      }
+    } else {
+      skippedLocalImage = _selectedImage != null;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final question =
+        widget.existingQuestion?.copyWith(
+          title: title,
+          content: content,
+          tag: _selectedTag,
+          imageUrl: imageUrl.isEmpty ? null : imageUrl,
+          updatedAtMs: now,
+        ) ??
+        Question(
+          author: widget.currentUserDisplayName.isNotEmpty
+              ? widget.currentUserDisplayName
+              : 'Mahasiswa ITS',
+          avatar: widget.currentUserDisplayName.isNotEmpty
+              ? widget.currentUserDisplayName[0].toUpperCase()
+              : 'M',
+          title: title,
+          content: content,
+          tag: _selectedTag,
+          imageUrl: imageUrl.isEmpty ? null : imageUrl,
+          time: 'Baru Saja',
+          createdAtMs: now,
+          updatedAtMs: now,
+          replies: [],
+        );
+
+    Navigator.pop(
+      context,
+      _QuestionFormResult(
+        question: question,
+        skippedLocalImage: skippedLocalImage,
+      ),
+    );
+  }
+
+  Future<String?> _uploadSelectedImage(XFile image) async {
+    try {
+      final bytes = await image.readAsBytes();
+      final safeName = image.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final storage = FirebaseStorage.instance;
+      storage.setMaxUploadRetryTime(const Duration(seconds: 6));
+      storage.setMaxOperationRetryTime(const Duration(seconds: 6));
+
+      final ref = storage.ref().child(
+        'question_attachments/${DateTime.now().millisecondsSinceEpoch}_$safeName',
+      );
+      final uploadTask = ref.putData(
+        bytes,
+        SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),
+      );
+      final snapshot = await uploadTask.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () async {
+          await uploadTask.cancel();
+          throw TimeoutException('Firebase Storage upload timeout');
+        },
+      );
+      return snapshot.ref.getDownloadURL().timeout(const Duration(seconds: 6));
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Upload gambar gagal, posting dilanjutkan tanpa foto. Detail: $e',
+          ),
+        ),
+      );
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: Text(
+          _isEditing ? 'Edit Soal' : 'Posting Soal',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Colors.orange.shade800,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _selectedTag,
+              decoration: InputDecoration(
+                labelText: 'Topik',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: widget.tags
+                  .map((tag) => DropdownMenuItem(value: tag, child: Text(tag)))
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _selectedTag = value);
+              },
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _titleController,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: 'Judul pertanyaan',
+                hintText: 'Contoh: Cara debug Provider di Flutter',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _contentController,
+              minLines: 5,
+              maxLines: 8,
+              decoration: InputDecoration(
+                labelText: 'Detail soal',
+                hintText:
+                    'Tulis konteks, error, rumus, atau bagian yang belum paham.',
+                alignLabelWithHint: true,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _imageUrlController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'URL gambar soal (opsional)',
+                hintText: 'Firebase Storage download URL',
+                prefixIcon: const Icon(Icons.image_outlined),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Galeri'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Kamera'),
+                  ),
+                ),
+              ],
+            ),
+            if (_selectedImage != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.attach_file,
+                    size: 16,
+                    color: Colors.orange.shade800,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _selectedImage!.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isSubmitting ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade800,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(_isEditing ? Icons.save : Icons.send),
+                  label: Text(
+                    _isSubmitting
+                        ? 'Upload...'
+                        : _isEditing
+                        ? 'Simpan'
+                        : 'Posting',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuestionCard extends StatelessWidget {
+  final Question question;
+  final VoidCallback onOpen;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onUpvote;
+
+  const _QuestionCard({
+    required this.question,
+    required this.onOpen,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onUpvote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 1.5,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.orange.shade100,
+                    radius: 17,
+                    child: Text(
+                      question.avatar,
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          question.author,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '${question.time} • ${question.tag}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (question.isSolved)
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: const Text('Terjawab'),
+                      avatar: Icon(
+                        Icons.check_circle,
+                        color: Colors.green.shade700,
+                        size: 16,
+                      ),
+                      labelStyle: TextStyle(
+                        color: Colors.green.shade800,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      backgroundColor: Colors.green.shade50,
+                      side: BorderSide.none,
+                    ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') onEdit();
+                      if (value == 'delete') onDelete();
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Edit soal'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          title: Text('Hapus soal'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                question.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                question.content,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.grey.shade800,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              if ((question.imageUrl ?? '').isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    question.imageUrl!,
+                    height: 130,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 64,
+                      color: Colors.orange.shade50,
+                      alignment: Alignment.center,
+                      child: const Text('Lampiran gambar tidak bisa dimuat'),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: onUpvote,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            question.isUpvoted
+                                ? Icons.thumb_up_alt
+                                : Icons.thumb_up_alt_outlined,
+                            color: question.isUpvoted
+                                ? Colors.orange.shade800
+                                : Colors.grey.shade600,
+                            size: 17,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${question.votes} Upvotes',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.comment_outlined,
+                    color: Colors.grey.shade500,
+                    size: 17,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${question.answersCount} Jawaban',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.orange.shade800,
+                    size: 13,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

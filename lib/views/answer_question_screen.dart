@@ -1,16 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class AnswerQuestionScreen extends StatefulWidget {
   final String questionId;
 
-  const AnswerQuestionScreen({
-    super.key,
-    required this.questionId,
-  });
+  const AnswerQuestionScreen({super.key, required this.questionId});
 
   @override
   State<AnswerQuestionScreen> createState() => _AnswerQuestionScreenState();
@@ -25,357 +22,513 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     super.dispose();
   }
 
-  void _postReply(QuestionViewModel vm, String authorName) async {
+  Future<void> _postReply(QuestionViewModel vm, String authorName) async {
     final text = _replyController.text.trim();
-    if (text.isNotEmpty) {
-      final reply = Reply(
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Jawaban tidak boleh kosong.')),
+      );
+      return;
+    }
+
+    await vm.addReply(
+      widget.questionId,
+      Reply(
         author: authorName.isNotEmpty ? authorName : 'Mahasiswa ITS',
         content: text,
-        votes: 0,
-        isBest: false,
-      );
-      
-      await vm.addReply(widget.questionId, reply);
-      
-      setState(() {
-        _replyController.clear();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Solusi Anda berhasil dipublikasikan!')),
-        );
-      }
-    }
+      ),
+    );
+
+    _replyController.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Jawaban berhasil dipublikasikan.')),
+    );
+  }
+
+  Future<void> _showEditReplyDialog(
+    BuildContext context,
+    QuestionViewModel vm,
+    Reply reply,
+  ) async {
+    final controller = TextEditingController(text: reply.content);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Edit Jawaban'),
+        content: TextField(
+          controller: controller,
+          maxLines: 6,
+          decoration: InputDecoration(
+            labelText: 'Isi jawaban',
+            alignLabelWithHint: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              await vm.updateReply(
+                widget.questionId,
+                reply.copyWith(content: text),
+              );
+              if (!context.mounted) return;
+              Navigator.pop(dialogCtx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Jawaban berhasil diperbarui.')),
+              );
+            },
+            icon: const Icon(Icons.save),
+            label: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
+
+  Future<void> _confirmDeleteReply(
+    BuildContext context,
+    QuestionViewModel vm,
+    Reply reply,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Tarik Jawaban'),
+        content: const Text(
+          'Jawaban ini akan dihapus dari diskusi. Lanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    await vm.deleteReply(widget.questionId, reply.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Jawaban berhasil ditarik.')));
   }
 
   @override
   Widget build(BuildContext context) {
     final questionViewModel = Provider.of<QuestionViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
-    final currentUserDisplayName = authViewModel.user?.displayName ?? 'Mahasiswa ITS';
+    final currentUserDisplayName =
+        authViewModel.user?.displayName ?? 'Mahasiswa ITS';
+    final question = questionViewModel.findQuestion(widget.questionId);
 
-    // Find the question in the view model list
-    final questions = questionViewModel.questions;
-    final questionIdx = questions.indexWhere((q) => q.id == widget.questionId);
-    
-    if (questionIdx == -1) {
+    if (question == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Diskusi & Jawaban Solusi', style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Diskusi Jawaban',
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: Colors.orange.shade800,
           iconTheme: const IconThemeData(color: Colors.white),
         ),
         body: const Center(
-          child: Text('Pertanyaan tidak ditemukan atau telah dihapus.'),
+          child: Text('Pertanyaan tidak ditemukan atau sudah dihapus.'),
         ),
       );
     }
 
-    final question = questions[questionIdx];
-    final replies = question.replies;
-
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Diskusi & Jawaban Solusi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Diskusi Jawaban',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: Colors.orange.shade800,
         iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
       ),
       body: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // CARD PERTANYAAN UTAMA (DETIL)
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _QuestionDetailCard(question: question),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text(
+                      'Jawaban',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text('${question.replies.length}'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (question.replies.isEmpty)
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    color: Colors.white,
-                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.all(24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: Colors.orange.shade100,
-                                radius: 20,
-                                child: Text(question.avatar, style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold)),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      question.author,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Diposting ${question.time} • ${question.tag}',
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          Icon(
+                            Icons.mark_chat_unread_outlined,
+                            size: 46,
+                            color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 10),
                           Text(
-                            question.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, height: 1.3),
+                            'Belum ada jawaban. Jadilah yang pertama membantu.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            question.content,
-                            style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Daftar Jawaban (${replies.length})',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-                              ),
-                              if (question.isSolved)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.check, color: Colors.green.shade700, size: 14),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Terpecahkan',
-                                        style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          )
                         ],
                       ),
                     ),
+                  )
+                else
+                  ...question.replies.map(
+                    (reply) => _ReplyCard(
+                      reply: reply,
+                      onBest: () => questionViewModel.toggleBestReply(
+                        widget.questionId,
+                        reply.id,
+                      ),
+                      onUpvote: () => questionViewModel.toggleReplyUpvote(
+                        widget.questionId,
+                        reply,
+                      ),
+                      onEdit: () => _showEditReplyDialog(
+                        context,
+                        questionViewModel,
+                        reply,
+                      ),
+                      onDelete: () => _confirmDeleteReply(
+                        context,
+                        questionViewModel,
+                        reply,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // LIST SOLUSI / DISKUSI
-                  replies.isEmpty
-                      ? Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Center(
-                              child: Column(
-                                children: [
-                                  Icon(Icons.mark_chat_read_outlined, size: 48, color: Colors.grey.shade300),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Belum ada solusi di forum ini.\nJadilah orang pertama yang membantu rekan Anda!',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.4),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: replies.length,
-                          itemBuilder: (ctx, idx) {
-                            final reply = replies[idx];
-                            final isBest = reply.isBest;
-
-                            return Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: isBest
-                                    ? BorderSide(color: Colors.green.shade400, width: 1.5)
-                                    : BorderSide.none,
-                              ),
-                              margin: const EdgeInsets.only(bottom: 12),
-                              elevation: isBest ? 3 : 1,
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            CircleAvatar(
-                                              backgroundColor: isBest ? Colors.green.shade100 : Colors.grey.shade200,
-                                              radius: 14,
-                                              child: Text(
-                                                reply.author.isNotEmpty ? reply.author[0] : 'M',
-                                                style: TextStyle(
-                                                  color: isBest ? Colors.green.shade900 : Colors.black87,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 10,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              reply.author,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                        GestureDetector(
-                                          onTap: () {
-                                            questionViewModel.toggleBestReply(widget.questionId, idx);
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: isBest ? Colors.green.shade50 : Colors.grey.shade100,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: isBest ? Colors.green.shade300 : Colors.grey.shade300,
-                                                width: 0.5,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  isBest ? Icons.star : Icons.star_border,
-                                                  color: isBest ? Colors.green.shade700 : Colors.grey.shade600,
-                                                  size: 12,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  isBest ? 'Solusi Terbaik' : 'Tandai Solusi Terbaik',
-                                                  style: TextStyle(
-                                                    color: isBest ? Colors.green.shade700 : Colors.grey.shade700,
-                                                    fontSize: 9,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      reply.content,
-                                      style: TextStyle(color: Colors.grey.shade800, fontSize: 12, height: 1.4),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              constraints: const BoxConstraints(),
-                                              padding: EdgeInsets.zero,
-                                              icon: Icon(Icons.thumb_up_alt_outlined, color: Colors.grey.shade500, size: 14),
-                                              onPressed: () {
-                                                setState(() {
-                                                  reply.votes++;
-                                                });
-                                                questionViewModel.updateQuestion(question);
-                                              },
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${reply.votes} Upvotes',
-                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
-                                            ),
-                                          ],
-                                        ),
-                                        // Rating Stars Mock
-                                        const Row(
-                                          children: [
-                                            Icon(Icons.star, color: Colors.amber, size: 12),
-                                            Icon(Icons.star, color: Colors.amber, size: 12),
-                                            Icon(Icons.star, color: Colors.amber, size: 12),
-                                            Icon(Icons.star, color: Colors.amber, size: 12),
-                                            Icon(Icons.star, color: Colors.amber, size: 12),
-                                          ],
-                                        ),
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _replyController,
+                      minLines: 1,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Tulis solusi, rumus, atau penjelasan...',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
                         ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton.filled(
+                    onPressed: () =>
+                        _postReply(questionViewModel, currentUserDisplayName),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.orange.shade800,
+                    ),
+                    icon: const Icon(Icons.send),
+                    tooltip: 'Kirim jawaban',
+                  ),
                 ],
               ),
             ),
           ),
-          
-          // RESPONSE EDITOR COLUMN (KOLOM MENULIS SOLUSI)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                )
-              ],
-            ),
-            child: Row(
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionDetailCard extends StatelessWidget {
+  final Question question;
+
+  const _QuestionDetailCard({required this.question});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1.5,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _replyController,
-                    decoration: InputDecoration(
-                      hintText: 'Tulis solusi atau jawaban membantu...',
-                      hintStyle: const TextStyle(fontSize: 13),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
+                CircleAvatar(
+                  backgroundColor: Colors.orange.shade100,
+                  child: Text(
+                    question.avatar,
+                    style: TextStyle(
+                      color: Colors.orange.shade900,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => _postReply(questionViewModel, currentUserDisplayName),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.orange.shade800,
-                    radius: 20,
-                    child: const Icon(Icons.send, color: Colors.white, size: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question.author,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${question.time} • ${question.tag}',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                if (question.isSolved)
+                  Icon(Icons.verified_rounded, color: Colors.green.shade700),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              question.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              question.content,
+              style: TextStyle(color: Colors.grey.shade800, height: 1.45),
+            ),
+            if ((question.imageUrl ?? '').isNotEmpty) ...[
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  question.imageUrl!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 80,
+                    color: Colors.orange.shade50,
+                    alignment: Alignment.center,
+                    child: const Text('Lampiran gambar tidak bisa dimuat'),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplyCard extends StatelessWidget {
+  final Reply reply;
+  final VoidCallback onBest;
+  final VoidCallback onUpvote;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ReplyCard({
+    required this.reply,
+    required this.onBest,
+    required this.onUpvote,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: reply.isBest
+            ? BorderSide(color: Colors.green.shade500, width: 1.5)
+            : BorderSide.none,
+      ),
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: reply.isBest ? 3 : 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 15,
+                  backgroundColor: reply.isBest
+                      ? Colors.green.shade100
+                      : Colors.grey.shade200,
+                  child: Text(
+                    reply.author.isNotEmpty
+                        ? reply.author[0].toUpperCase()
+                        : 'M',
+                    style: TextStyle(
+                      color: reply.isBest
+                          ? Colors.green.shade900
+                          : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    reply.author,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'best') onBest();
+                    if (value == 'edit') onEdit();
+                    if (value == 'delete') onDelete();
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'best',
+                      child: ListTile(
+                        dense: true,
+                        leading: Icon(
+                          reply.isBest ? Icons.star : Icons.star_border,
+                        ),
+                        title: Text(
+                          reply.isBest ? 'Batalkan terbaik' : 'Tandai terbaik',
+                        ),
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                        dense: true,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Edit jawaban'),
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                        dense: true,
+                        leading: Icon(Icons.delete_outline, color: Colors.red),
+                        title: Text('Tarik jawaban'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          )
-        ],
+            if (reply.isBest) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Solusi terbaik',
+                  style: TextStyle(
+                    color: Colors.green.shade800,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              reply.content,
+              style: TextStyle(color: Colors.grey.shade800, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: onUpvote,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.thumb_up_alt_outlined,
+                      color: Colors.grey.shade600,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${reply.votes} Upvotes',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
