@@ -16,8 +16,8 @@ class QuestionForumScreen extends StatefulWidget {
 class _QuestionForumScreenState extends State<QuestionForumScreen> {
   final _questionTitleController = TextEditingController();
   final _questionContentController = TextEditingController();
-  String _selectedTag = '📚 Fisika';
-  final List<String> _tags = ['📚 Fisika', '💻 Flutter', '🔬 Kimia', '📐 Matematika'];
+  String _selectedTag = 'Fisika';
+  final List<String> _tags = ['Fisika', 'Flutter', 'Kimia', 'Matematika'];
   String _searchQuery = '';
 
   @override
@@ -27,7 +27,20 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
     super.dispose();
   }
 
+  IconData _tagIcon(String tag) {
+    switch (tag) {
+      case 'Fisika': return Icons.science;
+      case 'Flutter': return Icons.phone_android;
+      case 'Kimia': return Icons.biotech;
+      case 'Matematika': return Icons.calculate;
+      default: return Icons.label;
+    }
+  }
+
+
   void _showAskQuestionDialog(BuildContext context, QuestionViewModel questionViewModel, String currentUserDisplayName) {
+    String? attachmentName;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -40,7 +53,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                 children: [
                   Icon(Icons.question_answer_outlined, color: Colors.orange.shade800),
                   const SizedBox(width: 8),
-                  const Text('Tanyakan Soal Belajar', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Tanyakan Soal Belajar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -62,7 +75,14 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                             child: DropdownButton<String>(
                               value: _selectedTag,
                               items: _tags
-                                  .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12))))
+                                  .map((t) => DropdownMenuItem(value: t, child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(_tagIcon(t), size: 14, color: Colors.grey.shade700),
+                                      const SizedBox(width: 6),
+                                      Text(t, style: const TextStyle(fontSize: 12)),
+                                    ],
+                                  )))
                                   .toList(),
                               onChanged: (val) {
                                 if (val != null) {
@@ -95,6 +115,49 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    // Attachment Button
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            // Simulasi pemilihan file (karena tidak ada image_picker)
+                            setDialogState(() {
+                              attachmentName = 'screenshot_soal_fisika.png';
+                            });
+                          },
+                          icon: const Icon(Icons.attach_file),
+                          label: const Text('Lampirkan Foto Soal'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (attachmentName != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.image, size: 16, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              attachmentName!,
+                              style: const TextStyle(color: Colors.green, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                            onPressed: () {
+                              setDialogState(() {
+                                attachmentName = null;
+                              });
+                            },
+                          )
+                        ],
+                      ),
+                    ]
                   ],
                 ),
               ),
@@ -112,7 +175,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                         author: currentUserDisplayName.isNotEmpty ? currentUserDisplayName : 'Mahasiswa ITS',
                         avatar: currentUserDisplayName.isNotEmpty ? currentUserDisplayName[0].toUpperCase() : 'M',
                         title: title,
-                        content: content,
+                        content: content + (attachmentName != null ? '\n\n[Lampiran: $attachmentName]' : ''),
                         tag: _selectedTag,
                         votes: 0,
                         answersCount: 0,
@@ -171,23 +234,6 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
       ),
       body: Column(
         children: [
-          // Banner Modul Anggota 3
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.orange.shade50,
-            child: Row(
-              children: [
-                Icon(Icons.forum_outlined, color: Colors.orange.shade900),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Modul 3 Aktif (CRUD Firestore): Forum tanya jawab dinamis oleh Anggota 3 (SDG 4).',
-                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
           // Search Bar
           Padding(

@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
@@ -11,32 +11,13 @@ abstract class BarterRepository {
   Stream<ResultState<void>> updateBarterRequest(BarterRequest request);
   Stream<ResultState<void>> deleteBarterRequest(String requestId);
   Stream<ResultState<void>> applyBarter(String requestId, String currentUserId);
+  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId);
 }
 
-/// Implementasi BarterRepository menggunakan Firebase Cloud Firestore
-/// Dilengkapi dengan Hybrid In-Memory Database Fallback untuk jaminan dinamis 100% saat demo offline.
 class BarterRepositoryImpl implements BarterRepository {
   final FirebaseFirestore? _customDb;
 
   BarterRepositoryImpl({FirebaseFirestore? db}) : _customDb = db;
-
-  // DB In-Memory Fallback untuk menopang demo luring 100% jika Firebase belum terinisialisasi
-  static final List<BarterRequest> _inMemoryBarters = [
-    BarterRequest(
-      requestId: 'mock_req_1',
-      userId: 'User_Mahasiswa_2',
-      canTeach: 'Pemrograman Flutter & Dart',
-      wantToLearn: 'UI/UX Design Figma',
-      status: 'PENDING',
-    ),
-    BarterRequest(
-      requestId: 'mock_req_2',
-      userId: 'User_Mahasiswa_3',
-      canTeach: 'Aljabar Linear & Kalkulus',
-      wantToLearn: 'Bahasa Inggris Konversasional',
-      status: 'PENDING',
-    ),
-  ];
 
   FirebaseFirestore? get _db {
     try {
@@ -67,44 +48,24 @@ class BarterRepositoryImpl implements BarterRepository {
     try {
       final collection = _barterCollection;
       if (collection != null) {
-        final docRef = request.requestId.isEmpty
-            ? collection.doc()
-            : collection.doc(request.requestId);
-        
-        request.requestId = docRef.id;
-        await docRef.set(request.toJson());
-        
-        // Sinkronisasi lokal
-        _inMemoryBarters.removeWhere((item) => item.requestId == request.requestId);
-        _inMemoryBarters.add(request);
-      } else {
-        // FALLBACK DIALIRKAN KE IN-MEMORY
         if (request.requestId.isEmpty) {
-          request.requestId = 'local_req_${DateTime.now().millisecondsSinceEpoch}';
+          final docRef = await collection.add(request.toJson());
+          request.requestId = docRef.id;
+        } else {
+          await collection.doc(request.requestId).set(request.toJson());
         }
-        _inMemoryBarters.removeWhere((item) => item.requestId == request.requestId);
-        _inMemoryBarters.add(request);
-        developer.log(
-          'Simulasi Lokal: Berhasil menambahkan Request Barter baru ke In-Memory DB (${request.canTeach})',
-          name: 'INTEGRITY_DIAGNOSTICS',
-        );
+      } else {
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
       yield const ResultStateSuccess(null);
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
-        'ERROR di createBarterRequest: $e. Mengaktifkan in-memory fallback.',
+        'ERROR di createBarterRequest: $e.',
         name: 'INTEGRITY_DIAGNOSTICS',
         error: e,
         stackTrace: stackTrace,
       );
-      
-      if (request.requestId.isEmpty) {
-        request.requestId = 'local_req_${DateTime.now().millisecondsSinceEpoch}';
-      }
-      _inMemoryBarters.removeWhere((item) => item.requestId == request.requestId);
-      _inMemoryBarters.add(request);
-      yield const ResultStateSuccess(null);
+      yield ResultStateError(e as Exception, 'Gagal membuat request barter ke server: $e');
     }
   }
 
@@ -116,92 +77,62 @@ class BarterRepositoryImpl implements BarterRepository {
       if (collection != null) {
         QuerySnapshot<Map<String, dynamic>> querySnapshot;
         
-        // DUAL-DEFENSE STRATEGY:
-        // Langkah 1: Jalankan query dengan whereNotEqualTo. Di Firestore, ini memerlukan indeks gabungan.
-        try {
-          querySnapshot = await collection
-              .where('userId', isNotEqualTo: currentUserId)
-              .where('status', isEqualTo: 'PENDING')
-              .get();
-        } catch (e) {
-          // FALLBACK: Jika query inequality gagal karena indeks belum terbuat,
-          // ambil semua yang "PENDING" lalu lakukan filtering di memori lokal agar aplikasi tidak hang/crash.
-          developer.log(
-            'WARNING di getBarterRequests (Composite Index belum terbuat): $e. Mengaktifkan in-memory fallback filter.',
-            name: 'INTEGRITY_DIAGNOSTICS',
-          );
-
-          querySnapshot = await collection
-              .where('status', isEqualTo: 'PENDING')
-              .get();
-        }
+        querySnapshot = await collection
+            .where('status', isEqualTo: 'PENDING')
+            .get();
 
         final requestList = <BarterRequest>[];
         for (var doc in querySnapshot.docs) {
           final request = BarterRequest.fromJson(doc.data(), doc.id);
-          
-          // ==========================================
-          // LOGIKA SECURITY BARTER (Anti-Cheat Lapisan Ganda):
-          // Memaksa asersi di level Dart. Jika simulator sengaja menghapus filter Firestore di query,
-          // asersi ini akan langsung memicu error di mode debug, mencegah data diri sendiri tampil.
-          assert(
-            request.userId != currentUserId, 
-            'CRITICAL SECURITY EXCEPTION: Data request barter milik sendiri terobos masuk ke antarmuka aplikasi!'
-          );
-
-          // Pertahanan level produksi: skip item jika asersi dilewati / di-disable dalam release mode
-          if (request.userId == currentUserId) {
-            developer.log(
-              'Anti-Cheat Bypassed: Request milik sendiri (${request.requestId}) ditolak untuk ditampilkan.',
-              name: 'INTEGRITY_DIAGNOSTICS',
-            );
-            continue; 
-          }
-          // ==========================================
-
           requestList.add(request);
         }
 
-        // Sinkronisasi memori lokal agar data tetap mutakhir
-        _inMemoryBarters.clear();
-        _inMemoryBarters.addAll(requestList);
-
         yield ResultStateSuccess(requestList);
       } else {
-        // FALLBACK DIALIRKAN KE IN-MEMORY
-        developer.log(
-          'Membaca daftar Request Barter dari In-Memory DB (Total: ${_inMemoryBarters.length})',
-          name: 'INTEGRITY_DIAGNOSTICS',
-        );
-
-        final filteredList = _inMemoryBarters.where((req) {
-          // Tetap lakukan pertahanan security meskipun offline!
-          if (req.userId == currentUserId) {
-            developer.log(
-              'Anti-Cheat (Offline Check): Menyaring request milik sendiri (${req.requestId})',
-              name: 'INTEGRITY_DIAGNOSTICS',
-            );
-            return false;
-          }
-          return req.status == 'PENDING';
-        }).toList();
-
-        yield ResultStateSuccess(filteredList);
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
-        'ERROR di getBarterRequests: $e. Membaca dari in-memory fallback.',
+        'ERROR di getBarterRequests: $e.',
         name: 'INTEGRITY_DIAGNOSTICS',
         error: e,
         stackTrace: stackTrace,
       );
+      yield ResultStateError(e as Exception, 'Gagal memuat daftar request barter dari server: $e');
+    }
+  }
 
-      final filteredList = _inMemoryBarters.where((req) {
-        return req.userId != currentUserId && req.status == 'PENDING';
-      }).toList();
+  @override
+  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId) async* {
+    yield const ResultStateLoading();
+    try {
+      final collection = _barterCollection;
+      if (collection != null) {
+        final querySnapshot = await collection
+            .where('status', isEqualTo: 'MATCHED')
+            .get();
 
-      yield ResultStateSuccess(filteredList);
+        final requestList = <BarterRequest>[];
+        for (var doc in querySnapshot.docs) {
+          final request = BarterRequest.fromJson(doc.data(), doc.id);
+          // Filter lokal untuk menghindari kebutuhan Composite Index
+          if (request.userId == currentUserId || request.matchedWith == currentUserId) {
+            requestList.add(request);
+          }
+        }
+
+        yield ResultStateSuccess(requestList);
+      } else {
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        'ERROR di getMatchedBarters: $e.',
+        name: 'INTEGRITY_DIAGNOSTICS',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      yield ResultStateError(e as Exception, 'Gagal memuat riwayat match barter: $e');
     }
   }
 
@@ -216,30 +147,19 @@ class BarterRepositoryImpl implements BarterRepository {
       final collection = _barterCollection;
       if (collection != null) {
         await collection.doc(request.requestId).set(request.toJson());
-      }
-
-      final idx = _inMemoryBarters.indexWhere((item) => item.requestId == request.requestId);
-      if (idx != -1) {
-        _inMemoryBarters[idx] = request;
       } else {
-        _inMemoryBarters.add(request);
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
 
       yield const ResultStateSuccess(null);
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
-        'ERROR di updateBarterRequest: $e. Mengaktifkan in-memory fallback.',
+        'ERROR di updateBarterRequest: $e.',
         name: 'INTEGRITY_DIAGNOSTICS',
         error: e,
         stackTrace: stackTrace,
       );
-
-      final idx = _inMemoryBarters.indexWhere((item) => item.requestId == request.requestId);
-      if (idx != -1) {
-        _inMemoryBarters[idx] = request;
-      }
-      yield const ResultStateSuccess(null);
+      yield ResultStateError(e as Exception, 'Gagal mengupdate request barter di server: $e');
     }
   }
 
@@ -254,21 +174,19 @@ class BarterRepositoryImpl implements BarterRepository {
       final collection = _barterCollection;
       if (collection != null) {
         await collection.doc(requestId).delete();
+      } else {
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
 
-      _inMemoryBarters.removeWhere((item) => item.requestId == requestId);
       yield const ResultStateSuccess(null);
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
-        'ERROR di deleteBarterRequest: $e. Mengaktifkan in-memory fallback.',
+        'ERROR di deleteBarterRequest: $e.',
         name: 'INTEGRITY_DIAGNOSTICS',
         error: e,
         stackTrace: stackTrace,
       );
-
-      _inMemoryBarters.removeWhere((item) => item.requestId == requestId);
-      yield const ResultStateSuccess(null);
+      yield ResultStateError(e as Exception, 'Gagal menghapus request barter di server: $e');
     }
   }
 
@@ -321,63 +239,19 @@ class BarterRepositoryImpl implements BarterRepository {
           });
         });
 
-        // Sinkronisasi lokal
-        final idx = _inMemoryBarters.indexWhere((item) => item.requestId == requestId);
-        if (idx != -1) {
-          _inMemoryBarters[idx].status = 'MATCHED';
-          _inMemoryBarters[idx].matchedWith = currentUserId;
-        }
       } else {
-        // FALLBACK DIALIRKAN KE IN-MEMORY TRANSACTION SIMULATION
-        final idx = _inMemoryBarters.indexWhere((item) => item.requestId == requestId);
-        if (idx == -1) {
-          throw FirebaseException(
-            plugin: 'cloud_firestore',
-            code: 'not-found',
-            message: 'Dokumen request barter tidak ditemukan.',
-          );
-        }
-
-        final req = _inMemoryBarters[idx];
-        
-        // Cek Security buatan sendiri
-        if (req.userId == currentUserId) {
-          throw FirebaseException(
-            plugin: 'cloud_firestore',
-            code: 'permission-denied',
-            message: 'Anda tidak bisa membarter request buatan Anda sendiri.',
-          );
-        }
-
-        // Cek Status PENDING
-        if (req.status != 'PENDING') {
-          throw FirebaseException(
-            plugin: 'cloud_firestore',
-            code: 'aborted',
-            message: 'Maaf, request barter ini sudah diambil oleh orang lain secara bersamaan!',
-          );
-        }
-
-        // Jalankan update secara atomic lokal
-        req.status = 'MATCHED';
-        req.matchedWith = currentUserId;
-
-        developer.log(
-          'Simulasi Transaksi Lokal Atomik Sukses: Berhasil memasangkan Barter (${req.requestId}) dengan $currentUserId',
-          name: 'INTEGRITY_DIAGNOSTICS',
-        );
+        throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
 
       yield const ResultStateSuccess(null);
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
         'CRITICAL ABORT di applyBarter pada doc: $requestId oleh user: $currentUserId. Alasan: $e',
         name: 'INTEGRITY_DIAGNOSTICS',
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e, e is FirebaseException ? e.message ?? 'Gagal memproses barter.' : e.toString());
+      yield ResultStateError(e as Exception, e is FirebaseException ? e.message ?? 'Gagal memproses barter.' : e.toString());
     }
   }
 }

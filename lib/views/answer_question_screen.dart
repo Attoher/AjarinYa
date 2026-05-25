@@ -5,11 +5,11 @@ import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 
 class AnswerQuestionScreen extends StatefulWidget {
-  final String questionId;
+  final String? questionId;
 
   const AnswerQuestionScreen({
     super.key,
-    required this.questionId,
+    this.questionId,
   });
 
   @override
@@ -27,7 +27,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
 
   void _postReply(QuestionViewModel vm, String authorName) async {
     final text = _replyController.text.trim();
-    if (text.isNotEmpty) {
+    if (text.isNotEmpty && widget.questionId != null) {
       final reply = Reply(
         author: authorName.isNotEmpty ? authorName : 'Mahasiswa ITS',
         content: text,
@@ -35,7 +35,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
         isBest: false,
       );
       
-      await vm.addReply(widget.questionId, reply);
+      await vm.addReply(widget.questionId!, reply);
       
       setState(() {
         _replyController.clear();
@@ -54,8 +54,174 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUserDisplayName = authViewModel.user?.displayName ?? 'Mahasiswa ITS';
 
-    // Find the question in the view model list
     final questions = questionViewModel.questions;
+
+    // Mode 1: Browse list of questions to answer (when questionId is null)
+    if (widget.questionId == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          title: const Text('Bantu Jawab Soal', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: Colors.orange.shade800,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: questions.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.question_answer_outlined, size: 64, color: Colors.orange.shade200),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tidak ada pertanyaan saat ini',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.orange.shade50,
+                    child: Row(
+                      children: [
+                        Icon(Icons.lightbulb_rounded, color: Colors.orange.shade800, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Pilih pertanyaan dari rekan mahasiswa ITS di bawah ini untuk membantu memberikan solusi cerdas!',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE65100)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: questions.length,
+                      padding: const EdgeInsets.all(16),
+                      itemBuilder: (context, index) {
+                        final q = questions[index];
+                        return Card(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AnswerQuestionScreen(questionId: q.id),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          q.tag,
+                                          style: TextStyle(color: Colors.orange.shade900, fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      if (q.isSolved)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.check, color: Colors.green.shade700, size: 12),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Terpecahkan',
+                                                style: TextStyle(color: Colors.green.shade700, fontSize: 9, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    q.title,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    q.content,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: Colors.orange.shade100,
+                                            radius: 12,
+                                            child: Text(
+                                              q.avatar,
+                                              style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 9),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            q.author,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black54),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.comment_outlined, size: 14, color: Colors.grey.shade500),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${q.replies.length} Jawaban',
+                                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.orange.shade800),
+                                        ],
+                                      ),
+                                    ],
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      );
+    }
+
+    // Mode 2: Detailed discussion (when questionId is provided)
     final questionIdx = questions.indexWhere((q) => q.id == widget.questionId);
     
     if (questionIdx == -1) {
@@ -241,7 +407,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
                                         ),
                                         GestureDetector(
                                           onTap: () {
-                                            questionViewModel.toggleBestReply(widget.questionId, idx);
+                                            questionViewModel.toggleBestReply(widget.questionId!, idx);
                                           },
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -335,7 +501,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
               border: Border(top: BorderSide(color: Colors.grey.shade200)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, -4),
                 )

@@ -6,6 +6,7 @@ class Note {
   final String date;
   bool isBookmarked;
   final int colorValue;
+  final String ownerId;
 
   Note({
     this.id = '',
@@ -15,6 +16,7 @@ class Note {
     required this.date,
     this.isBookmarked = false,
     required this.colorValue,
+    this.ownerId = '',
   });
 
   factory Note.fromJson(Map<String, dynamic> json, String documentId) {
@@ -26,6 +28,7 @@ class Note {
       date: json['date'] as String? ?? '',
       isBookmarked: json['isBookmarked'] as bool? ?? false,
       colorValue: json['colorValue'] as int? ?? 0xFFE0F2F1, // Teal default color value
+      ownerId: json['ownerId'] as String? ?? '',
     );
   }
 
@@ -37,6 +40,7 @@ class Note {
       'date': date,
       'isBookmarked': isBookmarked,
       'colorValue': colorValue,
+      'ownerId': ownerId,
     };
   }
 }

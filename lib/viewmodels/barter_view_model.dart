@@ -16,6 +16,10 @@ class BarterViewModel extends ChangeNotifier {
   ResultState<List<BarterRequest>> _barterRequestsState = const ResultStateIdle();
   ResultState<List<BarterRequest>> get barterRequestsState => _barterRequestsState;
 
+  // State untuk menyimpan List request barter skill yang sudah MATCHED (riwayat)
+  ResultState<List<BarterRequest>> _matchedRequestsState = const ResultStateIdle();
+  ResultState<List<BarterRequest>> get matchedRequestsState => _matchedRequestsState;
+
   // State untuk memantau status eksekusi aksi CRUD (Create/Update/Delete/Apply Barter)
   ResultState<void> _crudActionState = const ResultStateIdle();
   ResultState<void> get crudActionState => _crudActionState;
@@ -27,6 +31,7 @@ class BarterViewModel extends ChangeNotifier {
         _barterRequestsState = result;
         notifyListeners();
       });
+      fetchMatchedBarterRequests(currentUserId);
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -36,6 +41,26 @@ class BarterViewModel extends ChangeNotifier {
         stackTrace: stackTrace,
       );
       _barterRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
+      notifyListeners();
+    }
+  }
+
+  /// Memuat list request barter yang sudah matched (riwayat).
+  Future<void> fetchMatchedBarterRequests(String currentUserId) async {
+    try {
+      _repository.getMatchedBarters(currentUserId).listen((result) {
+        _matchedRequestsState = result;
+        notifyListeners();
+      });
+    } catch (e, stackTrace) {
+      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
+      developer.log(
+        'ERROR saat fetchMatchedBarterRequests: $e',
+        name: 'INTEGRITY_DIAGNOSTICS',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      _matchedRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
       notifyListeners();
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/repositories/question_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class QuestionViewModel extends ChangeNotifier {
   final QuestionRepository _questionRepository;
@@ -27,6 +28,27 @@ class QuestionViewModel extends ChangeNotifier {
   }
 
   Future<void> createQuestion(Question question) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    if (question.ownerId.isEmpty) {
+      question = Question(
+        id: question.id,
+        author: question.author,
+        avatar: question.avatar,
+        title: question.title,
+        content: question.content,
+        tag: question.tag,
+        votes: question.votes,
+        answersCount: question.answersCount,
+        time: question.time,
+        isUpvoted: question.isUpvoted,
+        isSolved: question.isSolved,
+        replies: question.replies,
+        ownerId: userId,
+      );
+    }
+
     _questionRepository.createQuestion(question).listen((result) {
       if (result is ResultStateSuccess<void>) {
         loadQuestions();

@@ -43,6 +43,7 @@ class Question {
   bool isUpvoted;
   bool isSolved;
   final List<Reply> replies;
+  final String ownerId;
 
   Question({
     this.id = '',
@@ -56,13 +57,11 @@ class Question {
     required this.time,
     this.isUpvoted = false,
     this.isSolved = false,
-    required this.replies,
+    this.replies = const [],
+    this.ownerId = '',
   });
 
   factory Question.fromJson(Map<String, dynamic> json, String documentId) {
-    final rawReplies = json['replies'] as List<dynamic>? ?? [];
-    final parsedReplies = rawReplies.map((r) => Reply.fromJson(Map<String, dynamic>.from(r))).toList();
-
     return Question(
       id: documentId,
       author: json['author'] as String? ?? 'Mahasiswa ITS',
@@ -75,7 +74,11 @@ class Question {
       time: json['time'] as String? ?? 'Baru Saja',
       isUpvoted: json['isUpvoted'] as bool? ?? false,
       isSolved: json['isSolved'] as bool? ?? false,
-      replies: parsedReplies,
+      ownerId: json['ownerId'] as String? ?? '',
+      replies: (json['replies'] as List<dynamic>?)
+              ?.map((e) => Reply.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -91,7 +94,8 @@ class Question {
       'time': time,
       'isUpvoted': isUpvoted,
       'isSolved': isSolved,
-      'replies': replies.map((r) => r.toJson()).toList(),
+      'ownerId': ownerId,
+      'replies': replies.map((e) => e.toJson()).toList(),
     };
   }
 }
