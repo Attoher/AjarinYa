@@ -19,13 +19,13 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   
   // Local state for interactive ambient sounds
   String _selectedAmbient = 'None';
-  final List<String> _ambientSounds = ['None', '🎧 Lofi Cafe', '🌧️ Hujan Deras', '🌲 Hutan Rileks'];
+  final List<String> _ambientSounds = ['None', 'Lofi Cafe', 'Hujan Deras', 'Hutan Rileks'];
 
   // Online study group simulation
   final List<Map<String, String>> _onlinePeers = [
-    {'name': 'Ahmad Fauzi (Teknik Informatika)', 'status': 'Focusing 🎯', 'time': '12:45'},
-    {'name': 'Nabila Putri (Sistem Informasi)', 'status': 'Focusing 🎯', 'time': '18:10'},
-    {'name': 'Budi Santoso (Teknik Elektro)', 'status': 'Short Break ☕', 'time': '02:15'},
+    {'name': 'Ahmad Fauzi (Teknik Informatika)', 'status': 'Focusing', 'time': '12:45'},
+    {'name': 'Nabila Putri (Sistem Informasi)', 'status': 'Focusing', 'time': '18:10'},
+    {'name': 'Budi Santoso (Teknik Elektro)', 'status': 'Short Break', 'time': '02:15'},
   ];
 
   void _startTimer() {
@@ -92,7 +92,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
           children: [
             Icon(Icons.emoji_events, color: Colors.amber, size: 28),
             SizedBox(width: 8),
-            Text('Sesi Selesai!', style: TextStyle(fontWeight: FontWeight.bold)),
+            Flexible(child: Text('Sesi Selesai!', style: TextStyle(fontWeight: FontWeight.bold))),
           ],
         ),
         content: Text(
@@ -134,6 +134,8 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   Widget build(BuildContext context) {
     final double progress = (_minutes * 60 + _seconds) / 
         (_currentMode == 'Focus' ? 25 * 60 : (_currentMode == 'Short Break' ? 5 * 60 : 15 * 60));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final timerSize = screenWidth < 360 ? 180.0 : (screenWidth < 420 ? 220.0 : 240.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E0E11), // Deep premium dark crimson background
@@ -154,9 +156,9 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.shade700.withOpacity(0.2),
+                  color: Colors.redAccent.shade700.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.redAccent.shade700.withOpacity(0.4)),
+                  border: Border.all(color: Colors.redAccent.shade700.withValues(alpha: 0.4)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -190,12 +192,12 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    width: 240,
-                    height: 240,
+                    width: timerSize,
+                    height: timerSize,
                     child: CircularProgressIndicator(
                       value: progress,
                       strokeWidth: 10,
-                      backgroundColor: Colors.white.withOpacity(0.08),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
                       valueColor: AlwaysStoppedAnimation<Color>(
                         _currentMode == 'Focus' 
                             ? Colors.redAccent 
@@ -263,7 +265,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.redAccent.withOpacity(0.4),
+                            color: Colors.redAccent.withValues(alpha: 0.4),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           )
@@ -297,9 +299,9 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,9 +319,18 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 6,
                       children: _ambientSounds.map((sound) {
                         final isSelected = _selectedAmbient == sound;
+                        IconData soundIcon;
+                        switch (sound) {
+                          case 'Lofi Cafe': soundIcon = Icons.headphones; break;
+                          case 'Hujan Deras': soundIcon = Icons.water_drop; break;
+                          case 'Hutan Rileks': soundIcon = Icons.park; break;
+                          default: soundIcon = Icons.volume_off; break;
+                        }
                         return ChoiceChip(
+                          avatar: Icon(soundIcon, color: isSelected ? Colors.white : Colors.white60, size: 16),
                           label: Text(sound, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 11)),
                           selected: isSelected,
                           onSelected: (selected) {
@@ -344,9 +355,9 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +378,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.greenAccent.withOpacity(0.15),
+                            color: Colors.greenAccent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
@@ -390,7 +401,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor: Colors.redAccent.withOpacity(0.2),
+                                backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
                                 child: Text(
                                   peer['name']![0],
                                   style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
@@ -407,7 +418,12 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${peer['status']} • Mulai sejak ${peer['time']}',
+                                      '${peer['status']}',
+                                      style: TextStyle(color: Colors.white30, fontSize: 10),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      'Mulai sejak ${peer['time']}',
                                       style: const TextStyle(color: Colors.white30, fontSize: 10),
                                     ),
                                   ],
@@ -441,7 +457,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor : Colors.white.withOpacity(0.04),
+          color: isSelected ? activeColor : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? activeColor : Colors.white12,

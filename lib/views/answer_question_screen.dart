@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class AnswerQuestionScreen extends StatefulWidget {
-  final String questionId;
+  final String? questionId;
 
-  const AnswerQuestionScreen({super.key, required this.questionId});
+  const AnswerQuestionScreen({super.key, this.questionId});
 
   @override
   State<AnswerQuestionScreen> createState() => _AnswerQuestionScreenState();
@@ -23,6 +23,9 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
   }
 
   Future<void> _postReply(QuestionViewModel vm, String authorName) async {
+    final questionId = widget.questionId;
+    if (questionId == null) return;
+
     final text = _replyController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,7 +35,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     }
 
     await vm.addReply(
-      widget.questionId,
+      questionId,
       Reply(
         author: authorName.isNotEmpty ? authorName : 'Mahasiswa ITS',
         content: text,
@@ -76,7 +79,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
               final text = controller.text.trim();
               if (text.isEmpty) return;
               await vm.updateReply(
-                widget.questionId,
+                widget.questionId!,
                 reply.copyWith(content: text),
               );
               if (!context.mounted) return;
@@ -121,7 +124,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     );
 
     if (confirm != true) return;
-    await vm.deleteReply(widget.questionId, reply.id);
+    await vm.deleteReply(widget.questionId!, reply.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -134,7 +137,13 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUserDisplayName =
         authViewModel.user?.displayName ?? 'Mahasiswa ITS';
-    final question = questionViewModel.findQuestion(widget.questionId);
+    final questionId = widget.questionId;
+
+    if (questionId == null) {
+      return _AnswerQuestionPicker(questions: questionViewModel.questions);
+    }
+
+    final question = questionViewModel.findQuestion(questionId);
 
     if (question == null) {
       return Scaffold(
@@ -219,11 +228,11 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
                     (reply) => _ReplyCard(
                       reply: reply,
                       onBest: () => questionViewModel.toggleBestReply(
-                        widget.questionId,
+                        questionId,
                         reply.id,
                       ),
                       onUpvote: () => questionViewModel.toggleReplyUpvote(
-                        widget.questionId,
+                        questionId,
                         reply,
                       ),
                       onEdit: () => _showEditReplyDialog(
@@ -286,6 +295,99 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AnswerQuestionPicker extends StatelessWidget {
+  final List<Question> questions;
+
+  const _AnswerQuestionPicker({required this.questions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text(
+          'Bantu Jawab Soal',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: Colors.orange.shade800,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: questions.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.question_answer_outlined,
+                    size: 56,
+                    color: Colors.orange.shade200,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Belum ada pertanyaan untuk dijawab.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: questions.length,
+              itemBuilder: (context, index) {
+                final question = questions[index];
+                return Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(14),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.orange.shade100,
+                      child: Text(
+                        question.avatar,
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      question.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '${question.author} • ${question.tag} • ${question.replies.length} jawaban',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Colors.orange.shade800,
+                      size: 16,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AnswerQuestionScreen(questionId: question.id),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
     );
   }
 }

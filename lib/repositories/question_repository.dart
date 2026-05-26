@@ -175,13 +175,13 @@ class QuestionRepositoryImpl implements QuestionRepository {
     }
 
     try {
-      final snapshots = collection
-          .orderBy('createdAtMs', descending: true)
-          .snapshots();
+      final snapshots = collection.snapshots();
       await for (final snapshot in snapshots) {
-        final questionList = snapshot.docs
-            .map((doc) => Question.fromJson(doc.data(), doc.id))
-            .toList();
+        final questionList =
+            snapshot.docs
+                .map((doc) => Question.fromJson(doc.data(), doc.id))
+                .toList()
+              ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
         _inMemoryQuestions
           ..clear()
           ..addAll(questionList);

@@ -9,12 +9,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ajarin_ya/main.dart';
 
 void main() {
-  testWidgets('AjarinYa! dashboard load test', (WidgetTester tester) async {
+  testWidgets('AjarinYa! auth gate load test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our premium dashboard loads with the app title.
-    expect(find.text('AjarinYa! Dashboard'), findsOneWidget);
-    expect(find.text('SDG Target 4: Pendidikan Berkualitas'), findsOneWidget);
+    // Verify that the current app starts at the authentication gate.
+    expect(find.text('AjarinYa!'), findsOneWidget);
+    expect(find.text('Masuk Akun'), findsOneWidget);
   });
 }

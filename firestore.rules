@@ -1,9 +1,103 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
     }
+
+    // ==========================================
+    // MODULE 1: Study Spot Explorer
+    // ==========================================
+    match /study_spots/{spotId} {
+      // Siapa saja yang login bisa membaca spot belajar
+      allow read: if isAuthenticated();
+      
+      // Hanya bisa membuat spot dengan UID miliknya sendiri
+      allow create: if isAuthenticated() 
+                    && request.resource.data.createdBy == request.auth.uid;
+      
+      // Hanya pembuat spot yang bisa mengubah datanya
+      allow update: if isAuthenticated() 
+                    && resource.data.createdBy == request.auth.uid
+                    && request.resource.data.createdBy == request.auth.uid; // Mencegah transfer kepemilikan
+      
+      // Hanya pembuat spot yang bisa menghapus datanya
+      allow delete: if isAuthenticated() 
+                    && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ==========================================
+    // MODULE 1: Peer Skill Barter
+    // ==========================================
+    match /barter_requests/{requestId} {
+      // Siapa saja yang login bisa membaca daftar barter
+      allow read: if isAuthenticated();
+      
+      // Hanya bisa membuat request dengan UID miliknya sendiri
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Aturan update memiliki dua kemungkinan (Dual-Defense Strategy):
+      allow update: if isAuthenticated() && (
+        
+        // Kemungkinan 1: Pemilik request ingin mengupdate data request miliknya sendiri
+        (resource.data.userId == request.auth.uid 
+         && request.resource.data.userId == request.auth.uid) 
+        
+        || 
+        
+        // Kemungkinan 2: Pengguna lain ingin mengambil/menerima request barter ini (Atomic Transaction)
+        (resource.data.userId != request.auth.uid // Anti-cheat: Tidak boleh ambil barter sendiri
+         && resource.data.status == 'PENDING' // Hanya bisa ambil jika statusnya masih PENDING
+         && request.resource.data.status == 'MATCHED' // Status harus diubah ke MATCHED
+         && request.resource.data.matchedWith == request.auth.uid) // matchedWith harus UID si pengambil
+      );
+      
+      // Hanya pembuat request yang bisa menghapus
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // ==========================================
+    // MODULE: User Profile & Study Groups
+    // ==========================================
+    match /users/{userId} {
+      // Siapa saja yang login bisa membaca profil pengguna (agar bisa berinteraksi di grup)
+      allow read: if isAuthenticated();
+      
+      // Hanya pemilik dokumen yang dapat membuat, mengubah, atau memperbarui data profil/grup miliknya sendiri
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ==========================================
+    // MODULE: Notes / Collection (PRIVAT)
+    // ==========================================
+    match /notes/{noteId} {
+      // Notes bersifat privat, hanya pembuat yang bisa read/update/delete
+      allow read, update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    // ==========================================
+    // MODULE: Question Forum (PUBLIK)
+    // ==========================================
+    match /questions/{questionId} {
+      // Forum bisa dibaca dan dijawab oleh siapa saja yang login
+      allow read: if isAuthenticated();
+      
+      // Hanya bisa buat pertanyaan baru dengan UID sendiri
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      
+      // Update data: pembuat bisa edit soalnya, orang lain boleh push jawaban baru
+      allow update: if isAuthenticated(); 
+      // Catatan: Idealnya ada validasi mendetail untuk array replies, tapi karena di Flutter kita pakai arrayUnion,
+      // allow update ke semua authenticated user sudah mencukupi untuk MVP ini.
+
+      // Hanya pembuat yang bisa menghapus
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
   }
 }

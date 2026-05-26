@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/repositories/question_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class QuestionViewModel extends ChangeNotifier {
@@ -45,9 +46,16 @@ class QuestionViewModel extends ChangeNotifier {
     if (question.id.isEmpty) {
       question.id = 'local_q_${DateTime.now().millisecondsSinceEpoch}';
     }
-    _upsertQuestion(question, insertFirst: true);
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final questionWithOwner =
+        currentUserId == null || question.ownerId.isNotEmpty
+        ? question
+        : question.copyWith(ownerId: currentUserId);
+    _upsertQuestion(questionWithOwner, insertFirst: true);
     unawaited(
-      _syncQuestionAction(_questionRepository.createQuestion(question)),
+      _syncQuestionAction(
+        _questionRepository.createQuestion(questionWithOwner),
+      ),
     );
   }
 

@@ -12,13 +12,23 @@ class NotesCollectionScreen extends StatefulWidget {
 }
 
 class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
-  final List<String> _folders = ['Semua Catatan', '📐 Kalkulus II', '💻 Struktur Data', '🎨 UI/UX Design', '📚 Umum'];
+  final List<String> _folders = ['Semua Catatan', 'Kalkulus II', 'Struktur Data', 'UI/UX Design', 'Umum'];
   String _selectedFolder = 'Semua Catatan';
   String _searchQuery = '';
 
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  String _newNoteFolder = '📚 Umum';
+  String _newNoteFolder = 'Umum';
+
+  IconData _folderIcon(String folder) {
+    switch (folder) {
+      case 'Kalkulus II': return Icons.architecture;
+      case 'Struktur Data': return Icons.code;
+      case 'UI/UX Design': return Icons.palette;
+      case 'Umum': return Icons.menu_book;
+      default: return Icons.folder;
+    }
+  }
 
   @override
   void dispose() {
@@ -121,7 +131,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                               0xFFFFF8E1, // amber.shade50
                               0xFFE3F2FD, // blue.shade50
                               0xFFE8F5E9, // green.shade50
-                              0xFFF3E5F5, // purple.shade50
+                              0xFFE3F2FD, // blue.shade50 alt
                               0xFFE0F2F1, // teal.shade50
                             ];
                             final selectedColor = (colorOptions..shuffle()).first;
@@ -186,24 +196,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
       ),
       body: Column(
         children: [
-          // Banner Modul Anggota 2
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.teal.shade50,
-            child: Row(
-              children: [
-                Icon(Icons.collections_bookmark, color: Colors.teal.shade800),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Modul 2 Kelompok: Tempat penyimpanan rangkuman & koleksi materi belajar Anda terhubung ke Cloud Firestore.',
-                    style: TextStyle(fontSize: 12, color: Colors.teal.shade900, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
+
           // Search & Filter Section
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -245,7 +238,13 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: ChoiceChip(
-                          label: Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (folder != 'Semua Catatan') ...[Icon(_folderIcon(folder), size: 14, color: isSelected ? Colors.white : Colors.black54), const SizedBox(width: 4)],
+                              Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                            ],
+                          ),
                           selected: isSelected,
                           onSelected: (selected) {
                             setState(() {
@@ -282,14 +281,17 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                           ],
                         ),
                       )
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.85,
-                        ),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.85,
+                            ),
                         itemCount: filteredNotes.length,
                         itemBuilder: (ctx, idx) {
                           final note = filteredNotes[idx];
@@ -298,10 +300,10 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                             decoration: BoxDecoration(
                               color: Color(note.colorValue),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.black.withOpacity(0.04)),
+                              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.01),
+                                  color: Colors.black.withValues(alpha: 0.01),
                                   blurRadius: 6,
                                   offset: const Offset(0, 3),
                                 ),
@@ -316,12 +318,14 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.6),
+                                        color: Colors.white.withValues(alpha: 0.6),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        note.folder.split(' ').last,
+                                        note.folder,
                                         style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     IconButton(
@@ -377,7 +381,8 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                             ),
                           );
                         },
-                      ),
+                      );
+                    }),
           ),
         ],
       ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/viewmodels/barter_view_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class BarterRequestScreen extends StatefulWidget {
   const BarterRequestScreen({super.key});
@@ -17,8 +17,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
   final _canTeachController = TextEditingController();
   final _wantToLearnController = TextEditingController();
   
-  // Simulasi ID pengguna aktif (Pengguna 1)
-  final String _currentUserId = 'User_Mahasiswa_1';
+  String get _currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
@@ -36,7 +35,14 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
     super.dispose();
   }
 
-  void _showAddRequestDialog(BuildContext context) {
+  void _showAddRequestDialog(BuildContext context, {BarterRequest? existingRequest}) {
+    if (existingRequest != null) {
+      _canTeachController.text = existingRequest.canTeach;
+      _wantToLearnController.text = existingRequest.wantToLearn;
+    } else {
+      _canTeachController.clear();
+      _wantToLearnController.clear();
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -45,9 +51,9 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
             children: [
-              Icon(Icons.swap_horizontal_circle_outlined, color: Colors.indigo.shade700),
+              Icon(existingRequest == null ? Icons.handshake_outlined : Icons.edit_note, color: Colors.indigo.shade700),
               const SizedBox(width: 8),
-              const Text('Buat Barter Skill', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(existingRequest == null ? 'Buat Barter Skill' : 'Edit Barter Skill', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
           content: Form(
@@ -90,23 +96,25 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
               onPressed: () async {
                 if (_formKey.currentState?.validate() ?? false) {
                   final request = BarterRequest(
+                    requestId: existingRequest?.requestId ?? '',
                     userId: _currentUserId,
                     canTeach: _canTeachController.text,
                     wantToLearn: _wantToLearnController.text,
-                    status: 'PENDING',
+                    status: existingRequest?.status ?? 'PENDING',
                   );
 
-                  final vm = context.read<BarterViewModel>();
-                  await vm.createBarterRequest(request);
+                  final vm = Provider.of<BarterViewModel>(context, listen: false);
+                  if (existingRequest == null) {
+                    await vm.createBarterRequest(request);
+                  } else {
+                    await vm.updateBarterRequest(request);
+                  }
 
-                  _canTeachController.clear();
-                  _wantToLearnController.clear();
-                  
                   if (context.mounted) {
                     Navigator.pop(dialogCtx);
                     vm.fetchBarterRequests(_currentUserId);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Request barter Anda sukses dipublikasikan!')),
+                      SnackBar(content: Text(existingRequest == null ? 'Request barter Anda sukses dipublikasikan!' : 'Request barter berhasil diperbarui!')),
                     );
                   }
                 }
@@ -116,7 +124,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Publikasikan'),
+              child: Text(existingRequest == null ? 'Publikasikan' : 'Simpan'),
             ),
           ],
         );
@@ -124,80 +132,6 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
     );
   }
 
-  // ⚠️ SIMULATOR INTEGRITAS (ANTI-CHEAT & RACE CONDITION EXTREME TEST)
-  void _triggerCheatSimulator(BuildContext context, String mode) async {
-    final vm = context.read<BarterViewModel>();
-
-    if (mode == 'BYPASS_FILTER') {
-      // Simulator mencoba memasukkan request buatan user sendiri secara sengaja ke list barter.
-      // Ini mensimulasikan kegagalan filter Firestore dengan sengaja membuat request miliknya sendiri.
-      final cheatRequest = BarterRequest(
-        userId: _currentUserId, // Milik sendiri!
-        canTeach: '☠️ Hack Menembus Filter Integritas',
-        wantToLearn: 'Bahasa Rahasia Simulator',
-        status: 'PENDING',
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.amber.shade900,
-          content: const Text('Simulasi Cheat: Menyisipkan request barter milik sendiri. Menguji Asersi!'),
-        ),
-      );
-
-      // Menulis langsung ke database
-      final db = FirebaseFirestore.instance;
-      final docRef = db.collection('barter_requests').doc();
-      cheatRequest.requestId = docRef.id;
-      await docRef.set(cheatRequest.toJson());
-
-      // Muat ulang daftar.
-      // Asersi di barter_repository.dart:83-86 akan melempar AssertionError jika assert aktif, 
-      // dan filter manual di line 89 akan menyaring data ini secara diam-diam demi kestabilan aplikasi!
-      await vm.fetchBarterRequests(_currentUserId);
-    }
-  }
-
-  void _triggerRaceConditionSimulator(BuildContext context, String requestId) async {
-    // Simulasi Race Condition: Dua pengguna menekan tombol match bersamaan pada request tertentu.
-    final vm = context.read<BarterViewModel>();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.indigo.shade900,
-        content: const Text('Simulasi Race Condition: Memicu transaksi ganda simultan via atomic transaction.'),
-      ),
-    );
-
-    // Jalankan dua request applyBarter secara paralel dengan selisih waktu 0ms!
-    final call1 = vm.applyBarter(requestId, 'User_Mahasiswa_2_Tercepat');
-    final call2 = vm.applyBarter(requestId, 'User_Mahasiswa_3_Terlambat');
-
-    await Future.wait([call1, call2]);
-
-    vm.fetchBarterRequests(_currentUserId);
-
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Hasil Simulasi Transaksi'),
-          content: const Text(
-            'Transaksi Firestore berhasil diselesaikan secara atomik.\n\n'
-            'Salah satu mahasiswa berhasil memenangkan status MATCHED secara mutlak, '
-            'sedangkan mahasiswa kedua dibatalkan secara bersih tanpa membuat aplikasi force close (layar merah).',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Tutup'),
-            )
-          ],
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -211,33 +145,6 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
       ),
       body: Column(
         children: [
-          // Banner Simulasi
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.amber.shade100,
-            child: Row(
-              children: [
-                Icon(Icons.gavel_rounded, color: Colors.amber.shade900),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Anti-Cheat Sandbox: Sistem mendeteksi ID Pengguna Anda saat ini sebagai "User_Mahasiswa_1".',
-                    style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => _triggerCheatSimulator(context, 'BYPASS_FILTER'),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.amber.shade800,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Trigger Cheat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
 
           const Divider(height: 1),
 
@@ -246,8 +153,9 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
             child: Consumer<BarterViewModel>(
               builder: (context, vm, child) {
                 final state = vm.barterRequestsState;
+                final matchedState = vm.matchedRequestsState;
 
-                if (state is ResultStateLoading) {
+                if (state is ResultStateLoading || matchedState is ResultStateLoading) {
                   return const Center(child: CircularProgressIndicator(color: Colors.indigo));
                 } else if (state is ResultStateError) {
                   return Center(
@@ -277,9 +185,11 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                       ),
                     ),
                   );
-                } else if (state is ResultStateSuccess<List<BarterRequest>>) {
+                } else if (state is ResultStateSuccess<List<BarterRequest>> && matchedState is ResultStateSuccess<List<BarterRequest>>) {
                   final requests = state.data;
-                  if (requests.isEmpty) {
+                  final matchedRequests = matchedState.data;
+
+                  if (requests.isEmpty && matchedRequests.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -287,127 +197,42 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                           Icon(Icons.connect_without_contact_outlined, size: 64, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
                           Text(
-                            'Belum ada request barter aktif dari mahasiswa lain.',
+                            'Belum ada request barter atau riwayat match Anda.',
                             style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            '(Request milik Anda disembunyikan otomatis oleh sistem)',
-                            style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
                           ),
                         ],
                       ),
                     );
                   }
 
-                  return ListView.builder(
-                    itemCount: requests.length,
-                    padding: const EdgeInsets.all(12),
-                    itemBuilder: (context, index) {
-                      final req = requests[index];
+                  final myRequests = requests.where((r) => r.userId == _currentUserId).toList();
+                  final otherRequests = requests.where((r) => r.userId != _currentUserId).toList();
 
-                      return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.indigo.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'ID: ${req.userId}',
-                                      style: TextStyle(color: Colors.indigo.shade700, fontSize: 11, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      req.status,
-                                      style: TextStyle(color: Colors.green.shade700, fontSize: 11, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('BISA MENGAJAR:', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Text(req.canTeach, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(Icons.swap_horiz, color: Colors.grey.shade400, size: 28),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text('INGIN BELAJAR:', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Text(req.wantToLearn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), textAlign: Alignment.centerRight.x == 1.0 ? TextAlign.end : TextAlign.start),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  // Tombol Simulasi Race Condition
-                                  OutlinedButton(
-                                    onPressed: () => _triggerRaceConditionSimulator(context, req.requestId),
-                                    style: OutlinedButton.styleFrom(
-                                      side: BorderSide(color: Colors.red.shade200),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                    child: Text('Simulasi Tabrakan', style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Tombol Ajukan Match
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: () async {
-                                        await vm.applyBarter(req.requestId, _currentUserId);
-                                        vm.fetchBarterRequests(_currentUserId);
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Selamat! Barter skill berhasil dipasangkan (MATCHED).')),
-                                          );
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.indigo.shade700,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      child: const Text('Match Mentor'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                  return ListView(
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      if (myRequests.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
+                          child: Text('Request Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
                         ),
-                      );
-                    },
+                        ...myRequests.map((req) => _buildRequestCard(req, true, vm, context)),
+                      ],
+                      if (otherRequests.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8, top: 16),
+                          child: Text('Tersedia untuk Barter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
+                        ),
+                        ...otherRequests.map((req) => _buildRequestCard(req, false, vm, context)),
+                      ],
+                      if (matchedRequests.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8, top: 16),
+                          child: Text('Riwayat Match Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
+                        ),
+                        ...matchedRequests.map((req) => _buildRequestCard(req, req.userId == _currentUserId, vm, context, isMatched: true)),
+                      ],
+                    ],
                   );
                 }
                 return const Center(child: Text('Menunggu data...'));
@@ -422,6 +247,148 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Buat Barter'),
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(BarterRequest req, bool isMine, BarterViewModel vm, BuildContext context, {bool isMatched = false}) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'ID: ${req.userId}',
+                    style: TextStyle(color: Colors.indigo.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    req.status,
+                    style: TextStyle(color: Colors.green.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('BISA MENGAJAR:', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(req.canTeach, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.swap_horiz, color: Colors.grey.shade400, size: 28),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('INGIN BELAJAR:', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(req.wantToLearn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), textAlign: TextAlign.end, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (isMatched)
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Text(
+                        'Matched dengan ID: ${req.userId == _currentUserId ? req.matchedWith : req.userId}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else if (isMine)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showAddRequestDialog(context, existingRequest: req),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await vm.deleteBarterRequest(req.requestId);
+                        vm.fetchBarterRequests(_currentUserId);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Request barter Anda berhasil dihapus.')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                      label: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await vm.applyBarter(req.requestId, _currentUserId);
+                        vm.fetchBarterRequests(_currentUserId);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Selamat! Barter skill berhasil dipasangkan (MATCHED).')),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo.shade700,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Match Mentor'),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -1,18 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:developer' as developer;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  /// Menampilkan simulasi push notifikasi melayang (in-app banner) premium dengan
-  /// animasi slide-down dan fade-in. Sangat menawan dan andal saat didemokan.
+  /// Inisialisasi Firebase Cloud Messaging
+  Future<void> initFirebaseMessaging() async {
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+      
+      developer.log('User granted permission: ${settings.authorizationStatus}', name: 'FCM');
+
+      // Listen to foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        developer.log('Got a message whilst in the foreground!', name: 'FCM');
+        developer.log('Message data: ${message.data}', name: 'FCM');
+
+        if (message.notification != null) {
+          developer.log('Message also contained a notification: ${message.notification}', name: 'FCM');
+          // We would show the in-app banner here if context was available globally,
+          // but usually this is handled at the app root level.
+        }
+      });
+    } catch (e) {
+      developer.log('FCM init failed: $e', name: 'FCM');
+    }
+  }
+
+  /// Menampilkan simulasi push notifikasi melayang (in-app banner)
+  /// dengan animasi slide-down dan fade-in.
   void showNotification({
     required BuildContext context,
     required String title,
     required String message,
     IconData icon = Icons.notifications_active_rounded,
-    Color accentColor = const Color(0xFF8B5CF6), // Purple accent
+    Color accentColor = const Color(0xFF0D47A1),
   }) {
     final overlayState = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -121,45 +155,28 @@ class _NotificationBannerState extends State<_NotificationBanner> with SingleTic
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF0F172A), // Dark Slate
-                          Color(0xFF1E293B),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: widget.accentColor.withOpacity(0.4),
-                        width: 1.5,
+                        color: widget.accentColor.withValues(alpha: 0.3),
+                        width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: widget.accentColor.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        // Animated pulsing background for Icon
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: widget.accentColor.withOpacity(0.15),
+                            color: widget.accentColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: widget.accentColor.withOpacity(0.3),
-                              width: 1,
-                            ),
                           ),
                           child: Icon(
                             widget.icon,
@@ -176,17 +193,16 @@ class _NotificationBannerState extends State<_NotificationBanner> with SingleTic
                               Text(
                                 widget.title,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Color(0xFF1A1A2E),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  letterSpacing: 0.3,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.message,
                                 style: TextStyle(
-                                  color: Colors.grey.shade300,
+                                  color: Colors.grey.shade600,
                                   fontSize: 12,
                                   height: 1.3,
                                 ),
@@ -198,9 +214,9 @@ class _NotificationBannerState extends State<_NotificationBanner> with SingleTic
                         ),
                         const SizedBox(width: 8),
                         Icon(
-                          Icons.drag_handle_rounded,
-                          color: Colors.grey.shade600,
-                          size: 20,
+                          Icons.close,
+                          color: Colors.grey.shade400,
+                          size: 18,
                         ),
                       ],
                     ),

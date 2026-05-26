@@ -70,4 +70,64 @@ class AuthViewModel extends ChangeNotifier {
     await _authRepository.signOut();
     _setLoading(false);
   }
+
+  Future<bool> joinGroup(String groupId, {String? groupName}) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+    try {
+      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+      await _authRepository.joinGroup(groupId, groupName: groupName);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setLoading(false);
+      _setErrorMessage(e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> createGroup(String groupName) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+    try {
+      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+      // Generate random 6-digit code
+      final newGroupId = (100000 + DateTime.now().millisecond % 900000).toString();
+      await _authRepository.joinGroup(newGroupId, groupName: groupName);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setLoading(false);
+      _setErrorMessage(e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> switchActiveGroup(String groupId) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+    try {
+      await _authRepository.switchActiveGroup(groupId);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setLoading(false);
+      _setErrorMessage(e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> leaveGroup(String groupId) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+    try {
+      await _authRepository.leaveGroup(groupId);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setLoading(false);
+      _setErrorMessage(e.toString());
+      return false;
+    }
+  }
 }

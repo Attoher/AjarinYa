@@ -79,6 +79,7 @@ class Question {
   int createdAtMs;
   int updatedAtMs;
   List<Reply> replies;
+  String ownerId;
 
   Question({
     this.id = '',
@@ -96,6 +97,7 @@ class Question {
     int? createdAtMs,
     int? updatedAtMs,
     required this.replies,
+    this.ownerId = '',
   }) : createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch,
        updatedAtMs = updatedAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -127,6 +129,7 @@ class Question {
       createdAtMs: json['createdAtMs'] as int?,
       updatedAtMs: json['updatedAtMs'] as int?,
       replies: parsedReplies,
+      ownerId: json['ownerId'] as String? ?? '',
     );
   }
 
@@ -146,6 +149,7 @@ class Question {
       'createdAtMs': createdAtMs,
       'updatedAtMs': updatedAtMs,
       'replies': replies.map((r) => r.toJson()).toList(),
+      'ownerId': ownerId,
     };
   }
 
@@ -165,6 +169,7 @@ class Question {
     int? createdAtMs,
     int? updatedAtMs,
     List<Reply>? replies,
+    String? ownerId,
   }) {
     return Question(
       id: id ?? this.id,
@@ -182,6 +187,7 @@ class Question {
       createdAtMs: createdAtMs ?? this.createdAtMs,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
       replies: replies ?? List<Reply>.from(this.replies),
+      ownerId: ownerId ?? this.ownerId,
     );
   }
 }
