@@ -193,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final user = authViewModel.user;
-    final userDisplayName = user?.displayName ?? 'Atha';
+    final userDisplayName = user?.displayName ?? 'Pengguna';
     final userInitial = userDisplayName.isNotEmpty ? userDisplayName[0].toUpperCase() : 'M';
     final activeGroupId = user?.activeGroupId;
     final activeGroupName = user?.groupNames[activeGroupId] ?? activeGroupId ?? 'Tidak ada grup';

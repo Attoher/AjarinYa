@@ -7,7 +7,7 @@ import 'package:ajarin_ya/views/group_gate_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  void _showGroupMembers(BuildContext context, String groupId, String groupName) {
+  void _showGroupMembers(BuildContext context, String groupId, String groupName, String currentUserId) {
     showDialog(
       context: context,
       builder: (ctx) {
@@ -56,8 +56,13 @@ class ProfileScreen extends StatelessWidget {
                         final isLeader = uid == leaderId;
 
                         return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: isLeader ? Colors.amber.shade100 : Colors.indigo.shade50,
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isLeader ? Colors.amber.shade100 : Colors.indigo.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: Icon(
                               isLeader ? Icons.star : Icons.person,
                               color: isLeader ? Colors.amber.shade800 : Colors.indigo,
@@ -65,6 +70,34 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           title: Text(name, style: TextStyle(fontWeight: isLeader ? FontWeight.bold : FontWeight.normal)),
                           subtitle: isLeader ? Text('Leader', style: TextStyle(color: Colors.amber.shade800, fontSize: 12, fontWeight: FontWeight.bold)) : null,
+                          trailing: (currentUserId == leaderId && uid != leaderId)
+                              ? IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                  tooltip: 'Keluarkan Anggota',
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Keluarkan Anggota'),
+                                        content: Text('Keluarkan $name dari grup?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Keluarkan', style: TextStyle(color: Colors.red))),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await FirebaseFirestore.instance.collection('groups').doc(groupId).update({
+                                        'memberIds': FieldValue.arrayRemove([uid])
+                                      });
+                                      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                                        'groupIds': FieldValue.arrayRemove([groupId])
+                                      });
+                                      if (context.mounted) Navigator.pop(context); // Tutup dialog agar di-refresh user
+                                    }
+                                  },
+                                )
+                              : null,
                         );
                       },
                     );
@@ -104,7 +137,7 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Profil & Grup', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Profil & Grup', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -284,7 +317,7 @@ class ProfileScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.people, color: Color(0xFF0D47A1)),
                             tooltip: 'Lihat Anggota',
-                            onPressed: () => _showGroupMembers(context, gId, groupName),
+                            onPressed: () => _showGroupMembers(context, gId, groupName, user.uid),
                           ),
                           if (!isActive)
                             IconButton(

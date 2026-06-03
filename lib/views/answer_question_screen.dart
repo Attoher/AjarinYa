@@ -38,7 +38,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     await vm.addReply(
       questionId,
       Reply(
-        author: authorName.isNotEmpty ? authorName : 'Atha',
+        author: authorName.isNotEmpty ? authorName : 'Pengguna',
         content: text,
       ),
     );
@@ -137,7 +137,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     final questionViewModel = Provider.of<QuestionViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUserDisplayName =
-        authViewModel.user?.displayName ?? 'Atha';
+        authViewModel.user?.displayName ?? 'Pengguna';
     final questionId = widget.questionId;
 
     if (questionId == null) {

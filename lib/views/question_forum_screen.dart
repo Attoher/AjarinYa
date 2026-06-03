@@ -277,7 +277,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                               Question(
                                 author: currentUserDisplayName.isNotEmpty
                                     ? currentUserDisplayName
-                                    : 'Atha',
+                                    : 'Pengguna',
                                 avatar: currentUserDisplayName.isNotEmpty
                                     ? currentUserDisplayName[0].toUpperCase()
                                     : 'M',
@@ -461,7 +461,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   Widget build(BuildContext context) {
     final questionViewModel = context.read<QuestionViewModel>();
     final currentUserDisplayName = context.select<AuthViewModel, String>(
-      (authViewModel) => authViewModel.user?.displayName ?? 'Atha',
+      (authViewModel) => authViewModel.user?.displayName ?? 'Pengguna',
     );
 
     return Scaffold(
@@ -707,7 +707,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
         Question(
           author: widget.currentUserDisplayName.isNotEmpty
               ? widget.currentUserDisplayName
-              : 'Atha',
+              : 'Pengguna',
           avatar: widget.currentUserDisplayName.isNotEmpty
               ? widget.currentUserDisplayName[0].toUpperCase()
               : 'M',

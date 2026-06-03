@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "337815008905",
-    "project_id": "ajarinya-a5de0",
-    "storage_bucket": "ajarinya-a5de0.firebasestorage.app"
+    "project_number": "421849948747",
+    "project_id": "ajarinya-9ac4b",
+    "storage_bucket": "ajarinya-9ac4b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:337815008905:android:3614df817dea3589f9b858",
+        "mobilesdk_app_id": "1:421849948747:android:66e2728910f0cf168da3ce",
         "android_client_info": {
           "package_name": "com.example.ajarin_ya"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCsq3NyDjsjYjoBLXpv_BQkWkB0_6dkAO8"
+          "current_key": "AIzaSyD8oo3hllD9otlfCPncFEutzKiLIwPhJMo"
         }
       ],
       "services": {

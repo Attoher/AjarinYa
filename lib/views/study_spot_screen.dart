@@ -443,6 +443,14 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                 border: Border.all(color: Colors.grey.shade100, width: 1),
               ),
               child: ExpansionTile(
+                onExpansionChanged: (expanded) {
+                  if (expanded && hasGeo) {
+                    _mapController.move(
+                      LatLng(spot.getSafeLatitude(), spot.getSafeLongitude()),
+                      17.0,
+                    );
+                  }
+                },
                 leading: CircleAvatar(
                   backgroundColor: hasGeo ? AppTheme.primaryColor.withOpacity(0.1) : AppTheme.errorColor.withOpacity(0.1),
                   child: Icon(

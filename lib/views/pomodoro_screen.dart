@@ -158,26 +158,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 10),
-              // Subtitle SDG 4 Banner
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.hourglass_bottom, color: AppTheme.primaryColor, size: 14),
-                    SizedBox(width: 6),
-                    Text(
-                      'Modul 2: Fokus & Produktivitas Belajar',
-                      style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
+
               const SizedBox(height: 24),
               
               // Mode Toggles
