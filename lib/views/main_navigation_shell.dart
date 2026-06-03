@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/views/dashboard_screen.dart';
-import 'package:ajarin_ya/views/study_spot_screen.dart';
-import 'package:ajarin_ya/views/notes_collection_screen.dart';
+import 'package:ajarin_ya/views/explore_screen.dart';
 import 'package:ajarin_ya/views/question_forum_screen.dart';
 import 'package:ajarin_ya/views/pomodoro_screen.dart';
+import 'package:ajarin_ya/views/profile_screen.dart';
 import 'package:ajarin_ya/views/login_screen.dart';
 import 'package:ajarin_ya/views/group_gate_screen.dart';
-import 'package:ajarin_ya/views/barter_request_screen.dart';
-import 'package:ajarin_ya/views/answer_question_screen.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
+import 'dart:ui';
 
 class MainNavigationShell extends StatefulWidget {
   const MainNavigationShell({super.key});
@@ -23,12 +23,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const StudySpotScreen(),
-    const BarterRequestScreen(),
-    const PomodoroScreen(),
-    const NotesCollectionScreen(),
+    const ExploreScreen(),
     const QuestionForumScreen(),
-    const AnswerQuestionScreen(),
+    const PomodoroScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -44,75 +42,118 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 24, // Floating offset
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                    boxShadow: AppTheme.softShadow,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildNavItem(
+                        index: 0,
+                        icon: Icons.dashboard_outlined,
+                        activeIcon: Icons.dashboard_rounded,
+                        label: 'Home',
+                      ),
+                      _buildNavItem(
+                        index: 1,
+                        icon: Icons.explore_outlined,
+                        activeIcon: Icons.explore_rounded,
+                        label: 'Explore',
+                      ),
+                      _buildNavItem(
+                        index: 2,
+                        icon: Icons.forum_outlined,
+                        activeIcon: Icons.forum_rounded,
+                        label: 'Forum',
+                      ),
+                      _buildNavItem(
+                        index: 3,
+                        icon: Icons.timer_outlined,
+                        activeIcon: Icons.timer_rounded,
+                        label: 'Timer',
+                      ),
+                      _buildNavItem(
+                        index: 4,
+                        icon: Icons.person_outline_rounded,
+                        activeIcon: Icons.person_rounded,
+                        label: 'Profil',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: NavigationBarTheme(
-        data: NavigationBarThemeData(
-          indicatorColor: const Color(0xFF0D47A1).withValues(alpha: 0.12),
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
-              );
-            }
-            return TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-            );
-          }),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+  }) {
+    final isSelected = _currentIndex == index;
+    final primaryColor = AppTheme.primaryColor;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 10,
+          vertical: 10,
         ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          elevation: 2,
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard_rounded, color: Color(0xFF0D47A1)),
-              label: 'Home',
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: isSelected ? primaryColor : AppTheme.textSecondary,
+              size: 24,
             ),
-            NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map_rounded, color: Color(0xFF0D47A1)),
-              label: 'Study spot',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.swap_horizontal_circle_outlined),
-              selectedIcon: Icon(Icons.swap_horizontal_circle, color: Color(0xFF0D47A1)),
-              label: 'Request Barter Skill',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.hourglass_empty_rounded),
-              selectedIcon: Icon(Icons.hourglass_full_rounded, color: Color(0xFF0D47A1)),
-              label: 'Sesi Pomodoro',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.collections_bookmark_outlined),
-              selectedIcon: Icon(Icons.collections_bookmark_rounded, color: Color(0xFF0D47A1)),
-              label: 'Notes / Collection',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.forum_outlined),
-              selectedIcon: Icon(Icons.forum_rounded, color: Color(0xFF0D47A1)),
-              label: 'Question Forum',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.rate_review_outlined),
-              selectedIcon: Icon(Icons.rate_review_rounded, color: Color(0xFF0D47A1)),
-              label: 'Answer Question',
-            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: primaryColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ],
         ),
       ),

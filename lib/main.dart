@@ -11,6 +11,7 @@ import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/viewmodels/study_spot_view_model.dart';
 import 'package:ajarin_ya/views/main_navigation_shell.dart';
 import 'package:ajarin_ya/services/notification_service.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 
 void main() async {
   // Memastikan binding Flutter terinisialisasi secara aman
@@ -54,16 +55,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'AjarinYa!',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0D47A1),
-            primary: const Color(0xFF0D47A1),
-            secondary: const Color(0xFF00796B),
-          ),
-          scaffoldBackgroundColor: const Color(0xFFF5F7FA),
-          appBarTheme: const AppBarTheme(elevation: 0, centerTitle: true),
-        ),
+        theme: AppTheme.lightTheme,
         home: const MainNavigationShell(),
       ),
     );

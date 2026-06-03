@@ -9,11 +9,8 @@ import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ajarin_ya/views/study_spot_screen.dart';
 import 'package:ajarin_ya/views/barter_request_screen.dart';
-import 'package:ajarin_ya/views/pomodoro_screen.dart';
 import 'package:ajarin_ya/views/notes_collection_screen.dart';
-import 'package:ajarin_ya/views/question_forum_screen.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
-import 'package:ajarin_ya/views/profile_screen.dart';
 import 'package:ajarin_ya/views/group_gate_screen.dart';
 import 'package:ajarin_ya/models/study_spot.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
@@ -229,28 +226,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
-                    ),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 18,
-                      child: Text(
-                        userInitial,
-                        style: const TextStyle(
-                          color: Color(0xFF0D47A1),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                  ),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.white,
+                    radius: 18,
+                    child: Text(
+                      userInitial,
+                      style: const TextStyle(
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -367,11 +356,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Konten Utama Dashboard
           SliverList(
             delegate: SliverChildListDelegate([
-              // 1. STATS BANNER - Ringkasan Ekosistem Belajar (Dynamic & Premium)
-              Transform.translate(
-                offset: const Offset(0, -20),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              // 1. STATS BANNER - Ringkasan Ekosistem Belajar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Transform.translate(
+                  offset: const Offset(0, -20),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -479,95 +468,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Grid menu premium yang menampilkan semua 7 fitur dengan elegan
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final crossAxisCount = constraints.maxWidth > 500 ? 3 : 2;
+                        final crossAxisCount = constraints.maxWidth > 500 ? 4 : 2;
                         return GridView.count(
                           crossAxisCount: crossAxisCount,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: 1.45,
+                          childAspectRatio: 1.5,
                           children: [
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Home',
-                          desc: 'Pusat Dasbor Utama',
-                          icon: Icons.dashboard_rounded,
-                          startColor: const Color(0xFF0D47A1),
-                          endColor: const Color(0xFF1976D2),
-                          onTap: () {}, // Sudah di Home
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Study spot',
-                          desc: 'Peta Geolokasi ITS',
-                          icon: Icons.map_rounded,
-                          startColor: Colors.deepPurple.shade800,
-                          endColor: Colors.deepPurple.shade500,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const StudySpotScreen()));
-                          },
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Request Barter Skill',
-                          desc: 'Match Mentor Sebaya',
-                          icon: Icons.swap_horizontal_circle,
-                          startColor: Colors.indigo.shade800,
-                          endColor: Colors.indigo.shade500,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const BarterRequestScreen()));
-                          },
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Sesi Pomodoro',
-                          desc: 'Timer Fokus Belajar',
-                          icon: Icons.hourglass_full_rounded,
-                          startColor: Colors.red.shade800,
-                          endColor: Colors.red.shade500,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const PomodoroScreen()));
-                          },
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Notes / Collection',
-                          desc: 'Arsip & Bookmark',
-                          icon: Icons.collections_bookmark_rounded,
-                          startColor: Colors.teal.shade800,
-                          endColor: Colors.teal.shade500,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const NotesCollectionScreen()));
-                          },
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Question Forum',
-                          desc: 'Forum Komunitas',
-                          icon: Icons.forum_rounded,
-                          startColor: Colors.orange.shade900,
-                          endColor: Colors.orange.shade600,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestionForumScreen()));
-                          },
-                        ),
-                        _buildQuickActionCard(
-                          context,
-                          title: 'Answer Question',
-                          desc: 'Bantu Rekan Anda',
-                          icon: Icons.rate_review_rounded,
-                          startColor: Colors.amber.shade900,
-                          endColor: Colors.amber.shade600,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const AnswerQuestionScreen()));
-                          },
-                        ),
-                      ],
-                    );
+                            _buildQuickActionCard(
+                              context,
+                              title: 'Study Spot',
+                              desc: 'Peta Geolokasi ITS',
+                              icon: Icons.map_rounded,
+                              startColor: Colors.deepPurple.shade800,
+                              endColor: Colors.deepPurple.shade500,
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const StudySpotScreen()));
+                              },
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              title: 'Barter Skill',
+                              desc: 'Match Mentor Sebaya',
+                              icon: Icons.swap_horizontal_circle,
+                              startColor: Colors.indigo.shade800,
+                              endColor: Colors.indigo.shade500,
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const BarterRequestScreen()));
+                              },
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              title: 'Notes',
+                              desc: 'Arsip & Bookmark',
+                              icon: Icons.collections_bookmark_rounded,
+                              startColor: Colors.teal.shade800,
+                              endColor: Colors.teal.shade500,
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const NotesCollectionScreen()));
+                              },
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              title: 'Jawab Soal',
+                              desc: 'Bantu Rekan Anda',
+                              icon: Icons.rate_review_rounded,
+                              startColor: Colors.amber.shade900,
+                              endColor: Colors.amber.shade600,
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const AnswerQuestionScreen()));
+                              },
+                            ),
+                          ],
+                        );
                       },
                     ),
                     const SizedBox(height: 28),

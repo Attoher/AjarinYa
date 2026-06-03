@@ -52,10 +52,11 @@ class StudySpotViewModel extends ChangeNotifier {
         return;
       }
 
-      _repository.createStudySpot(spot).listen((result) {
+      await for (final result in _repository.createStudySpot(spot)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -81,10 +82,11 @@ class StudySpotViewModel extends ChangeNotifier {
         return;
       }
 
-      _repository.updateStudySpot(spot).listen((result) {
+      await for (final result in _repository.updateStudySpot(spot)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -101,10 +103,11 @@ class StudySpotViewModel extends ChangeNotifier {
   /// Menghapus lokasi Study Spot dari Firestore.
   Future<void> deleteStudySpot(String spotId) async {
     try {
-      _repository.deleteStudySpot(spotId).listen((result) {
+      await for (final result in _repository.deleteStudySpot(spotId)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(

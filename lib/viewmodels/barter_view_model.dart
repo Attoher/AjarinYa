@@ -68,10 +68,11 @@ class BarterViewModel extends ChangeNotifier {
   /// Membuat request barter skill baru.
   Future<void> createBarterRequest(BarterRequest request) async {
     try {
-      _repository.createBarterRequest(request).listen((result) {
+      await for (final result in _repository.createBarterRequest(request)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -88,10 +89,11 @@ class BarterViewModel extends ChangeNotifier {
   /// Memperbarui request barter skill.
   Future<void> updateBarterRequest(BarterRequest request) async {
     try {
-      _repository.updateBarterRequest(request).listen((result) {
+      await for (final result in _repository.updateBarterRequest(request)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -108,10 +110,11 @@ class BarterViewModel extends ChangeNotifier {
   /// Menghapus request barter skill berdasarkan ID.
   Future<void> deleteBarterRequest(String requestId) async {
     try {
-      _repository.deleteBarterRequest(requestId).listen((result) {
+      await for (final result in _repository.deleteBarterRequest(requestId)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -128,10 +131,11 @@ class BarterViewModel extends ChangeNotifier {
   /// ATOMIC MATCH: Mengajukan barter skill pada request tertentu secara transaksional.
   Future<void> applyBarter(String requestId, String currentUserId) async {
     try {
-      _repository.applyBarter(requestId, currentUserId).listen((result) {
+      await for (final result in _repository.applyBarter(requestId, currentUserId)) {
         _crudActionState = result;
         notifyListeners();
-      });
+        if (result is ResultStateError) break;
+      }
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(

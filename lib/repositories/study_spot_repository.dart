@@ -60,13 +60,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         yield ResultStateError(ArgumentError(errorMsg), errorMsg);
         return;
       }
-      if (geoPoint.latitude < -7.2860 || geoPoint.latitude > -7.2800 ||
-          geoPoint.longitude < 112.7930 || geoPoint.longitude > 112.7970) {
-        final errorMsg = 'Pendaftaran gagal! Koordinat di luar area Kampus ITS (Lat: ${geoPoint.latitude.toStringAsFixed(4)}, Lng: ${geoPoint.longitude.toStringAsFixed(4)}).';
-        developer.log(errorMsg, name: 'INTEGRITY_DIAGNOSTICS');
-        yield ResultStateError(ArgumentError(errorMsg), errorMsg);
-        return;
-      }
+
 
       if (spot.name.trim().isEmpty || spot.description.trim().isEmpty) {
         const errorMsg = 'Nama tempat atau Deskripsi tidak boleh kosong!';
@@ -153,13 +147,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         yield ResultStateError(ArgumentError(errorMsg), errorMsg);
         return;
       }
-      if (geoPoint.latitude < -7.2860 || geoPoint.latitude > -7.2800 ||
-          geoPoint.longitude < 112.7930 || geoPoint.longitude > 112.7970) {
-        final errorMsg = 'Update gagal! Koordinat di luar area Kampus ITS (Lat: ${geoPoint.latitude.toStringAsFixed(4)}, Lng: ${geoPoint.longitude.toStringAsFixed(4)}).';
-        developer.log(errorMsg, name: 'INTEGRITY_DIAGNOSTICS');
-        yield ResultStateError(ArgumentError(errorMsg), errorMsg);
-        return;
-      }
+
 
       final collection = _spotsCollection;
       if (collection != null) {

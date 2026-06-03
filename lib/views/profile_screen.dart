@@ -108,6 +108,7 @@ class ProfileScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: ConstrainedBox(
@@ -175,9 +176,6 @@ class ProfileScreen extends StatelessWidget {
                         );
                         if (confirm == true && context.mounted) {
                           await authViewModel.logout();
-                          if (context.mounted) {
-                            Navigator.pop(context); // close profile screen
-                          }
                         }
                       },
                       icon: const Icon(Icons.logout, color: Colors.red),
@@ -239,79 +237,82 @@ class ProfileScreen extends StatelessWidget {
                 final isActive = gId == activeGroup;
                 final groupName = user.groupNames[gId] ?? 'Grup $gId';
                 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
                     color: isActive ? const Color(0xFFE3F2FD) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
-                      width: isActive ? 2 : 1,
-                    ),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: CircleAvatar(
-                      backgroundColor: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
-                      child: Icon(
-                        Icons.group,
-                        color: isActive ? Colors.white : Colors.grey.shade600,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
+                        width: isActive ? 2 : 1,
                       ),
                     ),
-                    title: Text(
-                      groupName,
-                      style: TextStyle(
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                        color: const Color(0xFF1A1A2E),
-                      ),
-                    ),
-                    subtitle: Text(
-                      'ID: $gId • ${isActive ? "Aktif" : "Ketuk untuk pindah"}',
-                      style: TextStyle(
-                        color: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade600,
-                        fontSize: 12,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.people, color: Color(0xFF0D47A1)),
-                          tooltip: 'Lihat Anggota',
-                          onPressed: () => _showGroupMembers(context, gId, groupName),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: CircleAvatar(
+                        backgroundColor: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
+                        child: Icon(
+                          Icons.group,
+                          color: isActive ? Colors.white : Colors.grey.shade600,
                         ),
-                        if (!isActive)
+                      ),
+                      title: Text(
+                        groupName,
+                        style: TextStyle(
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                          color: const Color(0xFF1A1A2E),
+                        ),
+                      ),
+                      subtitle: Text(
+                        'ID: $gId • ${isActive ? "Aktif" : "Ketuk untuk pindah"}',
+                        style: TextStyle(
+                          color: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           IconButton(
-                            icon: const Icon(Icons.exit_to_app, color: Colors.red),
-                            tooltip: 'Tinggalkan Grup',
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Tinggalkan Grup'),
-                                  content: Text('Yakin ingin meninggalkan grup "$groupName" ($gId)?'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, true), 
-                                      child: const Text('Tinggalkan', style: TextStyle(color: Colors.red)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                authViewModel.leaveGroup(gId);
-                              }
-                            },
+                            icon: const Icon(Icons.people, color: Color(0xFF0D47A1)),
+                            tooltip: 'Lihat Anggota',
+                            onPressed: () => _showGroupMembers(context, gId, groupName),
                           ),
-                      ],
+                          if (!isActive)
+                            IconButton(
+                              icon: const Icon(Icons.exit_to_app, color: Colors.red),
+                              tooltip: 'Tinggalkan Grup',
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Tinggalkan Grup'),
+                                    content: Text('Yakin ingin meninggalkan grup "$groupName" ($gId)?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, true), 
+                                        child: const Text('Tinggalkan', style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  authViewModel.leaveGroup(gId);
+                                }
+                              },
+                            ),
+                        ],
+                      ),
+                      onTap: () {
+                        if (!isActive) {
+                          authViewModel.switchActiveGroup(gId);
+                        }
+                      },
                     ),
-                    onTap: () {
-                      if (!isActive) {
-                        authViewModel.switchActiveGroup(gId);
-                      }
-                    },
                   ),
                 );
               }),

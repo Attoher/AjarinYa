@@ -4,6 +4,7 @@ import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/viewmodels/barter_view_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 
 class BarterRequestScreen extends StatefulWidget {
   const BarterRequestScreen({super.key});
@@ -51,7 +52,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
             children: [
-              Icon(existingRequest == null ? Icons.handshake_outlined : Icons.edit_note, color: Colors.indigo.shade700),
+              Icon(existingRequest == null ? Icons.handshake_outlined : Icons.edit_note, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
               Text(existingRequest == null ? 'Buat Barter Skill' : 'Edit Barter Skill', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
@@ -120,7 +121,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo.shade700,
+                backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -136,13 +137,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('Barter Skill (SDG 4)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.indigo.shade700,
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
-      ),
+      backgroundColor: AppTheme.backgroundColor,
       body: Column(
         children: [
 
@@ -156,7 +151,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 final matchedState = vm.matchedRequestsState;
 
                 if (state is ResultStateLoading || matchedState is ResultStateLoading) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.indigo));
+                  return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 } else if (state is ResultStateError) {
                   return Center(
                     child: Padding(
@@ -164,7 +159,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red.shade700, size: 48),
+                          Icon(Icons.error_outline, color: AppTheme.errorColor, size: 48),
                           const SizedBox(height: 12),
                           const Text(
                             'Peringatan Sistem Ditangkap!',
@@ -214,21 +209,21 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                       if (myRequests.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
-                          child: Text('Request Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
+                          child: Text('Request Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark)),
                         ),
                         ...myRequests.map((req) => _buildRequestCard(req, true, vm, context)),
                       ],
                       if (otherRequests.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8, top: 16),
-                          child: Text('Tersedia untuk Barter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
+                          child: Text('Tersedia untuk Barter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark)),
                         ),
                         ...otherRequests.map((req) => _buildRequestCard(req, false, vm, context)),
                       ],
                       if (matchedRequests.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8, top: 16),
-                          child: Text('Riwayat Match Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade900)),
+                          child: Text('Riwayat Match Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark)),
                         ),
                         ...matchedRequests.map((req) => _buildRequestCard(req, req.userId == _currentUserId, vm, context, isMatched: true)),
                       ],
@@ -243,7 +238,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddRequestDialog(context),
-        backgroundColor: Colors.indigo.shade700,
+        backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Buat Barter'),
@@ -252,12 +247,16 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
   }
 
   Widget _buildRequestCard(BarterRequest req, bool isMine, BarterViewModel vm, BuildContext context, {bool isMatched = false}) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 2,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppTheme.softShadow,
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -267,12 +266,12 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.shade50,
+                    color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'ID: ${req.userId}',
-                    style: TextStyle(color: Colors.indigo.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(
@@ -378,9 +377,9 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade700,
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: const Text('Match Mentor'),
                     ),
