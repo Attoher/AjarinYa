@@ -21,7 +21,7 @@ class Reply {
   factory Reply.fromJson(Map<String, dynamic> json) {
     return Reply(
       id: json['id'] as String? ?? '',
-      author: json['author'] as String? ?? 'Mahasiswa ITS',
+      author: json['author'] as String? ?? 'Atha',
       content: json['content'] as String? ?? '',
       votes: json['votes'] as int? ?? 0,
       isBest: json['isBest'] as bool? ?? false,
@@ -115,7 +115,7 @@ class Question {
 
     return Question(
       id: documentId,
-      author: json['author'] as String? ?? 'Mahasiswa ITS',
+      author: json['author'] as String? ?? 'Atha',
       avatar: json['avatar'] as String? ?? 'M',
       title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -27,6 +28,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     {'name': 'Nabila Putri (Sistem Informasi)', 'status': 'Focusing', 'time': '18:10'},
     {'name': 'Budi Santoso (Teknik Elektro)', 'status': 'Short Break', 'time': '02:15'},
   ];
+
+  // Local session notes
+  final List<String> _sessionNotes = [];
+  final TextEditingController _noteController = TextEditingController();
 
   void _startTimer() {
     if (_timer != null) return;
@@ -90,7 +95,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Row(
           children: [
-            Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+            Icon(Icons.star, color: Colors.amber, size: 28),
             SizedBox(width: 8),
             Flexible(child: Text('Sesi Selesai!', style: TextStyle(fontWeight: FontWeight.bold))),
           ],
@@ -113,7 +118,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               });
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -127,6 +132,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -138,12 +144,12 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     final timerSize = screenWidth < 360 ? 180.0 : (screenWidth < 420 ? 220.0 : 240.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E0E11), // Deep premium dark crimson background
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Sesi Pomodoro Bersama', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Sesi Pomodoro Bersama', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.textPrimary),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -156,18 +162,18 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.shade700.withValues(alpha: 0.2),
+                  color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.redAccent.shade700.withValues(alpha: 0.4)),
+                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.hourglass_bottom, color: Colors.redAccent, size: 14),
+                    Icon(Icons.hourglass_bottom, color: AppTheme.primaryColor, size: 14),
                     SizedBox(width: 6),
                     Text(
-                      'Modul 2 UI/UX: Fokus & Produktivitas Belajar',
-                      style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                      'Modul 2: Fokus & Produktivitas Belajar',
+                      style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -178,14 +184,14 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildModeButton('Focus', const Color(0xFFE57373)),
+                  _buildModeButton('Focus', AppTheme.primaryColor),
                   const SizedBox(width: 8),
-                  _buildModeButton('Short Break', const Color(0xFF81C784)),
+                  _buildModeButton('Short Break', Colors.teal),
                   const SizedBox(width: 8),
-                  _buildModeButton('Long Break', const Color(0xFF64B5F6)),
+                  _buildModeButton('Long Break', Colors.blue.shade600),
                 ],
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 48),
 
               // Circular Countdown Timer
               Stack(
@@ -196,12 +202,13 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                     height: timerSize,
                     child: CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 10,
-                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      strokeWidth: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      strokeCap: StrokeCap.round,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         _currentMode == 'Focus' 
-                            ? Colors.redAccent 
-                            : (_currentMode == 'Short Break' ? Colors.greenAccent : Colors.blueAccent)
+                            ? AppTheme.primaryColor 
+                            : (_currentMode == 'Short Break' ? Colors.teal : Colors.blue.shade600)
                       ),
                     ),
                   ),
@@ -211,7 +218,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       Text(
                         '${_minutes.toString().padLeft(2, '0')}:${_seconds.toString().padLeft(2, '0')}',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textPrimary,
                           fontSize: 56,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'monospace',
@@ -221,7 +228,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       Text(
                         _currentMode.toUpperCase(),
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: AppTheme.textSecondary,
                           fontSize: 12,
                           letterSpacing: 2,
                           fontWeight: FontWeight.bold,
@@ -231,7 +238,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       Text(
                         'Sesi Selesai: $_sessionsCompleted',
                         style: const TextStyle(
-                          color: Colors.greenAccent,
+                          color: AppTheme.primaryColor,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -240,7 +247,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   )
                 ],
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 48),
 
               // Timer Controls
               Row(
@@ -250,7 +257,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   IconButton(
                     onPressed: _resetTimer,
                     iconSize: 32,
-                    color: Colors.white60,
+                    color: AppTheme.textSecondary,
                     icon: const Icon(Icons.replay),
                   ),
                   const SizedBox(width: 24),
@@ -261,11 +268,11 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: Colors.redAccent,
+                        color: AppTheme.primaryColor,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.redAccent.withValues(alpha: 0.4),
+                            color: AppTheme.primaryColor.withOpacity(0.3),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           )
@@ -288,31 +295,32 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       });
                     },
                     iconSize: 32,
-                    color: Colors.white60,
+                    color: AppTheme.textSecondary,
                     icon: const Icon(Icons.skip_next),
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
               // Ambient Sound Simulation Block
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  boxShadow: AppTheme.softShadow,
+                  border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.music_note, color: Colors.redAccent, size: 20),
+                        Icon(Icons.music_note, color: AppTheme.primaryColor, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Musik & Latar Suara Fokus',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ],
                     ),
@@ -330,8 +338,8 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                           default: soundIcon = Icons.volume_off; break;
                         }
                         return ChoiceChip(
-                          avatar: Icon(soundIcon, color: isSelected ? Colors.white : Colors.white60, size: 16),
-                          label: Text(sound, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 11)),
+                          avatar: Icon(soundIcon, color: isSelected ? Colors.white : AppTheme.textSecondary, size: 16),
+                          label: Text(sound, style: TextStyle(color: isSelected ? Colors.white : AppTheme.textSecondary, fontSize: 11)),
                           selected: isSelected,
                           onSelected: (selected) {
                             setState(() {
@@ -339,9 +347,9 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                             });
                           },
                           backgroundColor: Colors.transparent,
-                          selectedColor: Colors.redAccent.shade700,
+                          selectedColor: AppTheme.primaryColor,
                           side: BorderSide(
-                            color: isSelected ? Colors.redAccent : Colors.white24,
+                            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
                           ),
                         );
                       }).toList(),
@@ -355,9 +363,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  boxShadow: AppTheme.softShadow,
+                  border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,23 +376,23 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.people_alt, color: Colors.greenAccent, size: 20),
+                            Icon(Icons.people_alt, color: Colors.teal, size: 20),
                             SizedBox(width: 8),
                             Text(
                               'Ruang Belajar Aktif (ITS)',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.greenAccent.withValues(alpha: 0.15),
+                            color: Colors.teal.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
                             '3 Online',
-                            style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Colors.teal, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -401,10 +410,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                                 child: Text(
                                   peer['name']![0],
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -414,22 +423,22 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                   children: [
                                     Text(
                                       peer['name']!,
-                                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${peer['status']}',
-                                      style: TextStyle(color: Colors.white30, fontSize: 10),
+                                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
                                     ),
                                     const SizedBox(height: 1),
                                     Text(
                                       'Mulai sejak ${peer['time']}',
-                                      style: const TextStyle(color: Colors.white30, fontSize: 10),
+                                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.circle, color: Colors.greenAccent, size: 8),
+                              const Icon(Icons.circle, color: Colors.teal, size: 8),
                             ],
                           ),
                         );
@@ -438,7 +447,94 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              // Notes Section
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: AppTheme.softShadow,
+                  border: Border.all(color: Colors.grey.shade100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.edit_note, color: AppTheme.primaryColor, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Catatan Kecil',
+                          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_sessionNotes.isNotEmpty)
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _sessionNotes.length,
+                        itemBuilder: (ctx, idx) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('•', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(_sessionNotes[idx], style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    if (_sessionNotes.isNotEmpty) const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _noteController,
+                            maxLines: 1,
+                            decoration: InputDecoration(
+                              hintText: 'Tulis catatan penting saat sesi fokus...',
+                              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            onPressed: () {
+                              if (_noteController.text.trim().isNotEmpty) {
+                                setState(() {
+                                  _sessionNotes.add(_noteController.text.trim());
+                                  _noteController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        )
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 120),
             ],
           ),
         ),
@@ -457,18 +553,18 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? activeColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? activeColor : Colors.white12,
+            color: isSelected ? activeColor : Colors.grey.shade300,
           ),
         ),
         child: Text(
           mode,
           style: TextStyle(
-            color: isSelected ? Colors.black87 : Colors.white70,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+            color: isSelected ? activeColor : AppTheme.textSecondary,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
         ),
       ),

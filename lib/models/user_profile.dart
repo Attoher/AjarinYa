@@ -39,7 +39,7 @@ class UserProfile {
     return UserProfile(
       uid: json['uid'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      displayName: json['displayName'] as String? ?? 'Mahasiswa ITS',
+      displayName: json['displayName'] as String? ?? 'Atha',
       avatarUrl: json['avatarUrl'] as String? ?? '',
       groupIds: parsedGroupIds,
       groupNames: parsedGroupNames,

@@ -133,9 +133,14 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: const Color(0xFFE3F2FD),
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    alignment: Alignment.center,
                     child: Text(
                       initial,
                       style: const TextStyle(

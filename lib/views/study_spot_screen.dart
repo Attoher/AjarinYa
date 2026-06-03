@@ -350,25 +350,31 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
         },
       ),
       floatingActionButton: _selectedLat != null && _selectedLng != null
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                await _showAddSpotDialog(context, preLat: _selectedLat, preLng: _selectedLng);
-                setState(() {
-                  _selectedLat = null;
-                  _selectedLng = null;
-                });
-              },
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.save),
-              label: const Text('Simpan Titik Ini'),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 90.0),
+              child: FloatingActionButton.extended(
+                onPressed: () async {
+                  await _showAddSpotDialog(context, preLat: _selectedLat, preLng: _selectedLng);
+                  setState(() {
+                    _selectedLat = null;
+                    _selectedLng = null;
+                  });
+                },
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.save),
+                label: const Text('Simpan Titik Ini'),
+              ),
             )
-          : FloatingActionButton.extended(
-              onPressed: () => _showAddSpotDialog(context),
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_location_alt),
-              label: const Text('Daftar Spot Baru'),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 90.0),
+              child: FloatingActionButton.extended(
+                onPressed: () => _showAddSpotDialog(context),
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.add_location_alt),
+                label: const Text('Drop Pin Baru'),
+              ),
             ),
     );
   }
@@ -420,7 +426,7 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
 
       return ListView.builder(
         itemCount: spots.length,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         itemBuilder: (context, index) {
           final spot = spots[index];
           final hasGeo = spot.hasValidLocation();

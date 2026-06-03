@@ -204,7 +204,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                   final otherRequests = requests.where((r) => r.userId != _currentUserId).toList();
 
                   return ListView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
                     children: [
                       if (myRequests.isNotEmpty) ...[
                         Padding(
@@ -236,12 +236,15 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddRequestDialog(context),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Buat Barter'),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showAddRequestDialog(context),
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Buat Barter'),
+        ),
       ),
     );
   }

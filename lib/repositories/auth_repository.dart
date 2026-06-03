@@ -123,7 +123,7 @@ class AuthRepositoryImpl implements AuthRepository {
           final profile = await _loadOrCreateUserProfile(
             user.uid,
             user.email ?? '',
-            user.displayName ?? 'Mahasiswa ITS',
+            user.displayName ?? 'Atha',
             user.photoURL ?? '',
           );
           _currentCachedUser = profile;
@@ -164,7 +164,7 @@ class AuthRepositoryImpl implements AuthRepository {
           final profile = await _loadOrCreateUserProfile(
             user.uid,
             user.email ?? '',
-            user.displayName ?? 'Mahasiswa ITS',
+            user.displayName ?? 'Atha',
             user.photoURL ?? '',
           );
           _currentCachedUser = profile;

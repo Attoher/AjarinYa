@@ -285,7 +285,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                         builder: (context, constraints) {
                           final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
                           return GridView.builder(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: crossAxisCount,
                               crossAxisSpacing: 12,
@@ -386,12 +386,15 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddNoteBottomSheet(notesVm),
-        backgroundColor: Colors.teal.shade700,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.create),
-        label: const Text('Catat Materi'),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showAddNoteBottomSheet(notesVm),
+          backgroundColor: Colors.teal.shade700,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.create),
+          label: const Text('Catat Materi'),
+        ),
       ),
     );
   }

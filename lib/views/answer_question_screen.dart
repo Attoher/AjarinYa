@@ -2,6 +2,7 @@ import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:flutter/material.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 class AnswerQuestionScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     await vm.addReply(
       questionId,
       Reply(
-        author: authorName.isNotEmpty ? authorName : 'Mahasiswa ITS',
+        author: authorName.isNotEmpty ? authorName : 'Atha',
         content: text,
       ),
     );
@@ -136,7 +137,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     final questionViewModel = Provider.of<QuestionViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUserDisplayName =
-        authViewModel.user?.displayName ?? 'Mahasiswa ITS';
+        authViewModel.user?.displayName ?? 'Atha';
     final questionId = widget.questionId;
 
     if (questionId == null) {
@@ -152,7 +153,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
             'Diskusi Jawaban',
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.orange.shade800,
+          backgroundColor: AppTheme.primaryColor,
           iconTheme: const IconThemeData(color: Colors.white),
         ),
         body: const Center(
@@ -162,13 +163,13 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text(
           'Diskusi Jawaban',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: AppTheme.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
@@ -284,7 +285,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
                     onPressed: () =>
                         _postReply(questionViewModel, currentUserDisplayName),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.orange.shade800,
+                      backgroundColor: AppTheme.primaryColor,
                     ),
                     icon: const Icon(Icons.send),
                     tooltip: 'Kirim jawaban',
@@ -307,13 +308,13 @@ class _AnswerQuestionPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text(
           'Bantu Jawab Soal',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: AppTheme.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: questions.isEmpty
@@ -324,7 +325,7 @@ class _AnswerQuestionPicker extends StatelessWidget {
                   Icon(
                     Icons.question_answer_outlined,
                     size: 56,
-                    color: Colors.orange.shade200,
+                    color: AppTheme.primaryColor.withOpacity(0.2),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -347,11 +348,11 @@ class _AnswerQuestionPicker extends StatelessWidget {
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
                     leading: CircleAvatar(
-                      backgroundColor: Colors.orange.shade100,
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                       child: Text(
                         question.avatar,
                         style: TextStyle(
-                          color: Colors.orange.shade900,
+                          color: AppTheme.primaryDark,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -372,7 +373,7 @@ class _AnswerQuestionPicker extends StatelessWidget {
                     ),
                     trailing: Icon(
                       Icons.arrow_forward_ios_rounded,
-                      color: Colors.orange.shade800,
+                      color: AppTheme.primaryColor,
                       size: 16,
                     ),
                     onTap: () {
@@ -410,11 +411,11 @@ class _QuestionDetailCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.orange.shade100,
+                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                   child: Text(
                     question.avatar,
                     style: TextStyle(
-                      color: Colors.orange.shade900,
+                      color: AppTheme.primaryDark,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -466,7 +467,7 @@ class _QuestionDetailCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
                     height: 80,
-                    color: Colors.orange.shade50,
+                    color: AppTheme.primaryColor.withOpacity(0.05),
                     alignment: Alignment.center,
                     child: const Text('Lampiran gambar tidak bisa dimuat'),
                   ),

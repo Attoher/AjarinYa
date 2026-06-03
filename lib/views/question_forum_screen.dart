@@ -7,6 +7,7 @@ import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -85,7 +86,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                     existingQuestion == null
                         ? Icons.add_comment_outlined
                         : Icons.edit_note,
-                    color: Colors.orange.shade800,
+                    color: AppTheme.primaryColor,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -202,7 +203,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                           Icon(
                             Icons.attach_file,
                             size: 16,
-                            color: Colors.orange.shade800,
+                            color: AppTheme.primaryColor,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -276,7 +277,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                               Question(
                                 author: currentUserDisplayName.isNotEmpty
                                     ? currentUserDisplayName
-                                    : 'Mahasiswa ITS',
+                                    : 'Atha',
                                 avatar: currentUserDisplayName.isNotEmpty
                                     ? currentUserDisplayName[0].toUpperCase()
                                     : 'M',
@@ -310,7 +311,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                           );
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade800,
+                    backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                   ),
                   icon: Icon(
@@ -460,17 +461,17 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   Widget build(BuildContext context) {
     final questionViewModel = context.read<QuestionViewModel>();
     final currentUserDisplayName = context.select<AuthViewModel, String>(
-      (authViewModel) => authViewModel.user?.displayName ?? 'Mahasiswa ITS',
+      (authViewModel) => authViewModel.user?.displayName ?? 'Atha',
     );
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text(
           'Forum Diskusi Soal',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: AppTheme.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -482,27 +483,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.orange.shade50,
-            child: Row(
-              children: [
-                Icon(Icons.forum_outlined, color: Colors.orange.shade900),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Track Academic Discussion: CRUD pertanyaan, CRUD jawaban, realtime Firestore snapshot, dan lampiran gambar via URL Storage.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange.shade900,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -603,16 +584,19 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showQuestionForm(
-          context: context,
-          vm: questionViewModel,
-          currentUserDisplayName: currentUserDisplayName,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showQuestionForm(
+            context: context,
+            vm: questionViewModel,
+            currentUserDisplayName: currentUserDisplayName,
+          ),
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add_comment),
+          label: const Text('Tanya Soal'),
         ),
-        backgroundColor: Colors.orange.shade800,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_comment),
-        label: const Text('Tanya Soal'),
       ),
     );
   }
@@ -723,7 +707,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
         Question(
           author: widget.currentUserDisplayName.isNotEmpty
               ? widget.currentUserDisplayName
-              : 'Mahasiswa ITS',
+              : 'Atha',
           avatar: widget.currentUserDisplayName.isNotEmpty
               ? widget.currentUserDisplayName[0].toUpperCase()
               : 'M',
@@ -785,7 +769,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(
           _isEditing ? 'Edit Soal' : 'Posting Soal',
@@ -794,7 +778,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: AppTheme.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
@@ -896,7 +880,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
                   Icon(
                     Icons.attach_file,
                     size: 16,
-                    color: Colors.orange.shade800,
+                    color: AppTheme.primaryColor,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -940,7 +924,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
                 child: ElevatedButton.icon(
                   onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade800,
+                    backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                   ),
                   icon: Icon(_isEditing ? Icons.save : Icons.send),
@@ -993,12 +977,12 @@ class _QuestionCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: Colors.orange.shade100,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                     radius: 17,
                     child: Text(
                       question.avatar,
                       style: TextStyle(
-                        color: Colors.orange.shade900,
+                        color: AppTheme.primaryDark,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1102,7 +1086,7 @@ class _QuestionCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 64,
-                      color: Colors.orange.shade50,
+                      color: AppTheme.primaryColor.withOpacity(0.05),
                       alignment: Alignment.center,
                       child: const Text('Lampiran gambar tidak bisa dimuat'),
                     ),
@@ -1127,7 +1111,7 @@ class _QuestionCard extends StatelessWidget {
                                 ? Icons.thumb_up_alt
                                 : Icons.thumb_up_alt_outlined,
                             color: question.isUpvoted
-                                ? Colors.orange.shade800
+                                ? AppTheme.primaryColor
                                 : Colors.grey.shade600,
                             size: 17,
                           ),
@@ -1154,7 +1138,7 @@ class _QuestionCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: Colors.orange.shade800,
+                    color: AppTheme.primaryColor,
                     size: 13,
                   ),
                 ],

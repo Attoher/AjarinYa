@@ -15,6 +15,7 @@ import 'package:ajarin_ya/views/group_gate_screen.dart';
 import 'package:ajarin_ya/models/study_spot.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -33,11 +34,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _fetchQuote();
     
-    // Pemuatan data ViewModel secara asinkron di awal agar data real-time tampil di Home
     Future.microtask(() {
       if (mounted) {
         context.read<StudySpotViewModel>().fetchStudySpots();
-      context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '');
+        context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '');
         context.read<NotesViewModel>().loadNotes();
         context.read<QuestionViewModel>().loadQuestions();
       }
@@ -89,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A2E),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     IconButton(
@@ -111,18 +111,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final isActive = gId == user.activeGroupId;
                     
                     return Card(
-                      color: isActive ? const Color(0xFFE3F2FD) : Colors.white,
+                      color: isActive ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                         side: BorderSide(
-                          color: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
+                          color: isActive ? AppTheme.primaryColor : Colors.grey.shade200,
                           width: isActive ? 1.5 : 1,
                         ),
                       ),
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isActive ? const Color(0xFF0D47A1) : Colors.grey.shade200,
+                          backgroundColor: isActive ? AppTheme.primaryColor : Colors.grey.shade200,
                           child: Icon(
                             Icons.group,
                             color: isActive ? Colors.white : Colors.grey.shade600,
@@ -132,15 +133,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           groupName,
                           style: TextStyle(
                             fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                            color: const Color(0xFF1A1A2E),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                         subtitle: Text(
                           'ID: $gId',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                         ),
                         trailing: isActive 
-                            ? const Icon(Icons.check_circle, color: Color(0xFF0D47A1))
+                            ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
                             : null,
                         onTap: () {
                           if (!isActive) {
@@ -171,11 +172,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     icon: const Icon(Icons.add),
                     label: const Text('Gabung atau Buat Grup Baru'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D47A1),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
@@ -192,18 +193,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final user = authViewModel.user;
-    final userDisplayName = user?.displayName ?? 'Mahasiswa ITS';
+    final userDisplayName = user?.displayName ?? 'Atha';
     final userInitial = userDisplayName.isNotEmpty ? userDisplayName[0].toUpperCase() : 'M';
     final activeGroupId = user?.activeGroupId;
     final activeGroupName = user?.groupNames[activeGroupId] ?? activeGroupId ?? 'Tidak ada grup';
 
-    // Mendapatkan data statistik reaktif dari ViewModels
     final studySpotViewModel = Provider.of<StudySpotViewModel>(context);
     final barterViewModel = Provider.of<BarterViewModel>(context);
     final notesViewModel = Provider.of<NotesViewModel>(context);
     final questionViewModel = Provider.of<QuestionViewModel>(context);
 
-    // Hitung statistik dynamic
     int totalSpots = 0;
     if (studySpotViewModel.studySpotsState is ResultStateSuccess<List<StudySpot>>) {
       totalSpots = (studySpotViewModel.studySpotsState as ResultStateSuccess<List<StudySpot>>).data.length;
@@ -212,24 +211,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int totalQuestions = questionViewModel.questions.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Header Modern & Premium dengan Gradient Halus & Curved Design
           SliverAppBar(
             expandedHeight: 220.0,
             floating: false,
             pinned: true,
             elevation: 0,
-            backgroundColor: const Color(0xFF0D47A1),
+            backgroundColor: AppTheme.primaryColor,
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                    border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
                   ),
                   child: CircleAvatar(
                     backgroundColor: Colors.white,
@@ -237,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Text(
                       userInitial,
                       style: const TextStyle(
-                        color: Color(0xFF0D47A1),
+                        color: AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -246,27 +244,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
-                'AjarinYa!',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                  fontSize: 20,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    )
-                  ],
-                ),
+            title: const Text(
+              'AjarinYa!',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.5,
+                fontSize: 20,
               ),
+            ),
+            centerTitle: true,
+            flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                    colors: [AppTheme.primaryColor, AppTheme.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -277,13 +269,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 50),
+                        const SizedBox(height: 70),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: Colors.white.withOpacity(0.18),
                             borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -302,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           'Hai, $userDisplayName!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                           ),
@@ -319,28 +311,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                )
+                                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))
                               ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.group_rounded, color: Color(0xFF0D47A1), size: 14),
+                                const Icon(Icons.group_rounded, color: AppTheme.primaryColor, size: 14),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Grup: $activeGroupName',
                                   style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
+                                    color: AppTheme.primaryColor,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF0D47A1), size: 18),
+                                const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.primaryColor, size: 18),
                               ],
                             ),
                           ),
@@ -353,38 +341,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           
-          // Konten Utama Dashboard
           SliverList(
             delegate: SliverChildListDelegate([
-              // 1. STATS BANNER - Ringkasan Ekosistem Belajar
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                child: Transform.translate(
-                  offset: const Offset(0, -20),
-                  child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        )
-                      ],
+                      boxShadow: AppTheme.softShadow,
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem(Icons.group_work_rounded, '${user?.groupIds.length ?? 0}', 'Grup Studi', Colors.blue.shade800),
-                        _buildStatItem(Icons.map_rounded, '$totalSpots', 'Spot Belajar', Colors.deepPurple.shade700),
-                        _buildStatItem(Icons.collections_bookmark_rounded, '$totalNotes', 'Rangkuman', Colors.teal.shade700),
-                        _buildStatItem(Icons.forum_rounded, '$totalQuestions', 'Pertanyaan', Colors.orange.shade800),
+                        _buildStatItem(Icons.group_work_rounded, '${user?.groupIds.length ?? 0}', 'Grup Studi', AppTheme.primaryColor),
+                        _buildStatItem(Icons.map_rounded, '$totalSpots', 'Spot Belajar', AppTheme.accentColor),
+                        _buildStatItem(Icons.collections_bookmark_rounded, '$totalNotes', 'Rangkuman', AppTheme.primaryColor),
+                        _buildStatItem(Icons.forum_rounded, '$totalQuestions', 'Pertanyaan', AppTheme.accentColor),
                       ],
                     ),
                   ),
-                ),
               ),
 
               Padding(
@@ -392,26 +369,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 2. MOTIVATIONAL QUOTE - Beautiful Glassmorphic Quote Card
                     _isLoadingQuote
                         ? const SizedBox()
                         : Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.indigo.shade900, const Color(0xFF0D47A1)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                              color: AppTheme.primaryDark,
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.indigo.withValues(alpha: 0.15),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                )
-                              ],
+                              boxShadow: AppTheme.hoverShadow,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Text(
                                       'Mutiara Hikmah Hari Ini',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.8),
+                                        color: Colors.white.withOpacity(0.8),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                         letterSpacing: 0.5,
@@ -459,11 +425,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                     const SizedBox(height: 24),
 
-                    // 3. PUSAT FITUR (QUICK ACCESS GRID HUB - 7 ITEMS)
                     _buildSectionHeader(
                       icon: Icons.grid_view_rounded,
-                      color: const Color(0xFF0D47A1),
-                      bgColor: const Color(0xFFE3F2FD),
+                      color: AppTheme.primaryDark,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
                       label: 'PUSAT NAVIGASI FITUR',
                     ),
                     const SizedBox(height: 14),
@@ -484,8 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: 'Study Spot',
                               desc: 'Peta Geolokasi ITS',
                               icon: Icons.map_rounded,
-                              startColor: Colors.deepPurple.shade800,
-                              endColor: Colors.deepPurple.shade500,
+                              colorTheme: AppTheme.primaryColor,
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => const StudySpotScreen()));
                               },
@@ -495,8 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: 'Barter Skill',
                               desc: 'Match Mentor Sebaya',
                               icon: Icons.swap_horizontal_circle,
-                              startColor: Colors.indigo.shade800,
-                              endColor: Colors.indigo.shade500,
+                              colorTheme: AppTheme.accentColor,
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => const BarterRequestScreen()));
                               },
@@ -506,8 +469,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: 'Notes',
                               desc: 'Arsip & Bookmark',
                               icon: Icons.collections_bookmark_rounded,
-                              startColor: Colors.teal.shade800,
-                              endColor: Colors.teal.shade500,
+                              colorTheme: AppTheme.primaryColor,
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => const NotesCollectionScreen()));
                               },
@@ -517,8 +479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: 'Jawab Soal',
                               desc: 'Bantu Rekan Anda',
                               icon: Icons.rate_review_rounded,
-                              startColor: Colors.amber.shade900,
-                              endColor: Colors.amber.shade600,
+                              colorTheme: AppTheme.accentColor,
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => const AnswerQuestionScreen()));
                               },
@@ -528,36 +489,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       },
                     ),
                     const SizedBox(height: 28),
-
-                    // 4. LIVE UPDATE STREAM (REAL-TIME DATA DARI VIEWMODELS)
                     
-                    // A. Live Update: Spot Belajar Terfavorit
                     _buildSectionHeader(
                       icon: Icons.explore_rounded,
-                      color: Colors.deepPurple.shade800,
-                      bgColor: Colors.deepPurple.shade50,
+                      color: AppTheme.primaryDark,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
                       label: 'SPOT BELAJAR PILIHAN DI ITS',
                     ),
                     const SizedBox(height: 12),
                     _buildLiveStudySpots(studySpotViewModel),
                     const SizedBox(height: 24),
 
-                    // B. Live Update: Barter Skill Terbaru
                     _buildSectionHeader(
                       icon: Icons.people_outline_rounded,
-                      color: Colors.indigo.shade800,
-                      bgColor: Colors.indigo.shade50,
+                      color: AppTheme.primaryDark,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
                       label: 'BUTUH MENTOR SEBAYA (BARTER SKILL)',
                     ),
                     const SizedBox(height: 12),
                     _buildLiveBarters(barterViewModel),
                     const SizedBox(height: 24),
 
-                    // C. Live Update: Pertanyaan Forum yang Membutuhkan Jawaban
                     _buildSectionHeader(
                       icon: Icons.question_answer_rounded,
-                      color: Colors.orange.shade800,
-                      bgColor: Colors.orange.shade50,
+                      color: AppTheme.primaryDark,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
                       label: 'DISKUSI AKTIF - BANTU JAWAB SOAL',
                     ),
                     const SizedBox(height: 12),
@@ -567,6 +523,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 120),
             ]),
           )
         ],
@@ -581,7 +538,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 20),
@@ -592,7 +549,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Colors.grey.shade800,
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 2),
@@ -601,7 +558,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade500,
+            color: AppTheme.textSecondary,
           ),
         ),
       ],
@@ -643,25 +600,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String title,
     required String desc,
     required IconData icon,
-    required Color startColor,
-    required Color endColor,
+    required Color colorTheme,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 2,
-      shadowColor: startColor.withValues(alpha: 0.15),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.softShadow,
+        border: Border.all(color: Colors.grey.shade100),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [startColor, endColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
+        child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -673,12 +625,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: colorTheme.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, color: Colors.white, size: 20),
+                    child: Icon(icon, color: colorTheme, size: 20),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 12),
+                  Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade300, size: 12),
                 ],
               ),
               Column(
@@ -687,7 +639,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -696,9 +648,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     desc,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: AppTheme.textSecondary,
                       fontSize: 9,
-                      fontWeight: FontWeight.w400,
+                      fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -712,7 +664,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // A. Live Study Spots List
   Widget _buildLiveStudySpots(StudySpotViewModel vm) {
     final state = vm.studySpotsState;
     if (state is ResultStateSuccess<List<StudySpot>>) {
@@ -720,29 +671,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (list.isEmpty) {
         return _buildEmptyState('Belum ada spot belajar yang terdaftar.');
       }
-      // Ambil maks 2 spot
       final showList = list.take(2).toList();
       return Column(
         children: showList.map((spot) {
-          return Card(
-            elevation: 1,
+          return Container(
             margin: const EdgeInsets.only(bottom: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.softShadow,
+              border: Border.all(color: Colors.grey.shade100),
+            ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               leading: CircleAvatar(
-                backgroundColor: Colors.deepPurple.shade50,
-                child: Icon(Icons.location_on_rounded, color: Colors.deepPurple.shade700),
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                child: const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
               ),
-              title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              subtitle: Text(spot.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+              subtitle: Text(spot.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               trailing: ElevatedButton(
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const StudySpotScreen()));
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple.shade700,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -758,7 +710,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return const Center(child: SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2)));
   }
 
-  // B. Live Barter Skill List
   Widget _buildLiveBarters(BarterViewModel vm) {
     final state = vm.barterRequestsState;
     if (state is ResultStateSuccess<List<BarterRequest>>) {
@@ -769,12 +720,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final showList = list.take(2).toList();
       return Column(
         children: showList.map((req) {
-          return Card(
-            elevation: 1,
+          return Container(
             margin: const EdgeInsets.only(bottom: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.softShadow,
+              border: Border.all(color: Colors.grey.shade100),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
                   Expanded(
@@ -783,27 +738,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.school, color: Colors.indigo.shade700, size: 14),
+                            const Icon(Icons.school, color: AppTheme.primaryColor, size: 14),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 'Bisa: ${req.canTeach}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimary),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
-                            Icon(Icons.menu_book, color: Colors.indigo.shade700, size: 14),
+                            const Icon(Icons.menu_book, color: AppTheme.primaryColor, size: 14),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 'Mau belajar: ${req.wantToLearn}',
-                                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 11, color: Colors.grey.shade700),
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11, color: AppTheme.textSecondary),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -818,8 +773,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const BarterRequestScreen()));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo.shade700,
-                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -837,7 +790,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return const Center(child: SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2)));
   }
 
-  // C. Live Question Forum List
   Widget _buildLiveQuestions(QuestionViewModel vm) {
     final list = vm.questions;
     if (list.isEmpty) {
@@ -846,18 +798,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final showList = list.take(2).toList();
     return Column(
       children: showList.map((q) {
-        return Card(
-          elevation: 1,
+        return Container(
           margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.softShadow,
+            border: Border.all(color: Colors.grey.shade100),
+          ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
-              backgroundColor: Colors.orange.shade50,
-              child: Text(q.avatar, style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
+              backgroundColor: AppTheme.accentColor.withOpacity(0.1),
+              child: Text(q.avatar, style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
-            title: Text(q.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: Text('Kategori: ${q.tag} • ${q.replies.length} Jawaban', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            title: Text(q.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+            subtitle: Text('Kategori: ${q.tag} • ${q.replies.length} Jawaban', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             trailing: ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -866,7 +822,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade800,
+                backgroundColor: AppTheme.accentColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 minimumSize: Size.zero,
@@ -887,13 +843,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Center(
         child: Text(
           text,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontStyle: FontStyle.italic),
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
         ),
       ),
     );
