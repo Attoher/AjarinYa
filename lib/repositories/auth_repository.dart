@@ -198,6 +198,18 @@ class AuthRepositoryImpl implements AuthRepository {
         final user = credential.user;
         if (user != null) {
           await user.updateDisplayName(displayName);
+          // Tunggu sebentar untuk menghindari race condition dengan _initAuthState
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          final db = _db;
+          if (db != null) {
+            // Paksa update displayName di Firestore karena _initAuthState mungkin sudah membuat dokumen dengan fallback string
+            await db.collection('users').doc(user.uid).set(
+              {'displayName': displayName}, 
+              SetOptions(merge: true)
+            );
+          }
+
           final profile = await _loadOrCreateUserProfile(
             user.uid,
             user.email ?? '',
