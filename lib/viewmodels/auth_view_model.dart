@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/models/user_profile.dart';
 import 'package:ajarin_ya/repositories/auth_repository.dart';
+import 'dart:math' as dart_math;
 
 class AuthViewModel extends ChangeNotifier {
   final AuthRepository _authRepository;
@@ -91,8 +92,9 @@ class AuthViewModel extends ChangeNotifier {
     _setErrorMessage(null);
     try {
       await Future.delayed(const Duration(seconds: 1)); // Simulate API call
-      // Generate random 6-digit code
-      final newGroupId = (100000 + DateTime.now().millisecond % 900000).toString();
+      // Generate random 6-digit code properly
+      final math = dart_math.Random();
+      final newGroupId = (100000 + math.nextInt(900000)).toString();
       await _authRepository.joinGroup(newGroupId, groupName: groupName);
       _setLoading(false);
       return true;
