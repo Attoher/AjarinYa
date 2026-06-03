@@ -5,6 +5,7 @@ import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/viewmodels/barter_view_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
+import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 
 class BarterRequestScreen extends StatefulWidget {
   const BarterRequestScreen({super.key});
@@ -25,7 +26,11 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
     super.initState();
     final barterViewModel = context.read<BarterViewModel>();
     Future.microtask(() {
-      barterViewModel.fetchBarterRequests(_currentUserId);
+      final authVm = context.read<AuthViewModel>();
+      final activeGroupId = authVm.user?.activeGroupId;
+      if (activeGroupId != null && activeGroupId.isNotEmpty) {
+        barterViewModel.fetchBarterRequests(_currentUserId, activeGroupId);
+      }
     });
   }
 
@@ -96,8 +101,12 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState?.validate() ?? false) {
+                  final authVm = Provider.of<AuthViewModel>(context, listen: false);
+                  final activeGroupId = authVm.user?.activeGroupId;
+
                   final request = BarterRequest(
                     requestId: existingRequest?.requestId ?? '',
+                    groupId: activeGroupId,
                     userId: _currentUserId,
                     canTeach: _canTeachController.text,
                     wantToLearn: _wantToLearnController.text,
@@ -113,7 +122,11 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
 
                   if (context.mounted) {
                     Navigator.pop(dialogCtx);
-                    vm.fetchBarterRequests(_currentUserId);
+                    final authVm = Provider.of<AuthViewModel>(context, listen: false);
+                    final activeGroupId = authVm.user?.activeGroupId;
+                    if (activeGroupId != null && activeGroupId.isNotEmpty) {
+                      vm.fetchBarterRequests(_currentUserId, activeGroupId);
+                    }
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(existingRequest == null ? 'Request barter Anda sukses dipublikasikan!' : 'Request barter berhasil diperbarui!')),
                     );
@@ -136,6 +149,25 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeGroupId = context.watch<AuthViewModel>().user?.activeGroupId;
+    
+    if (activeGroupId == null || activeGroupId.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.group_off, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text('Silakan pilih atau gabung grup terlebih dahulu', style: TextStyle(fontSize: 16)),
+              const Text('untuk melihat dan berbagi Skill Barter.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
@@ -173,7 +205,12 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton(
-                            onPressed: () => vm.fetchBarterRequests(_currentUserId),
+                            onPressed: () {
+                              final activeGroup = context.read<AuthViewModel>().user?.activeGroupId;
+                              if (activeGroup != null && activeGroup.isNotEmpty) {
+                                vm.fetchBarterRequests(_currentUserId, activeGroup);
+                              }
+                            },
                             child: const Text('Muat Ulang'),
                           ),
                         ],
@@ -352,7 +389,10 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         await vm.deleteBarterRequest(req.requestId);
-                        vm.fetchBarterRequests(_currentUserId);
+                        final activeGroup = context.read<AuthViewModel>().user?.activeGroupId;
+                        if (activeGroup != null && activeGroup.isNotEmpty) {
+                          vm.fetchBarterRequests(_currentUserId, activeGroup);
+                        }
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Request barter Anda berhasil dihapus.')),
@@ -372,7 +412,10 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                     child: ElevatedButton(
                       onPressed: () async {
                         await vm.applyBarter(req.requestId, _currentUserId);
-                        vm.fetchBarterRequests(_currentUserId);
+                        final activeGroup = context.read<AuthViewModel>().user?.activeGroupId;
+                        if (activeGroup != null && activeGroup.isNotEmpty) {
+                          vm.fetchBarterRequests(_currentUserId, activeGroup);
+                        }
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Selamat! Barter skill berhasil dipasangkan (MATCHED).')),

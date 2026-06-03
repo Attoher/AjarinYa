@@ -7,7 +7,7 @@ import 'package:ajarin_ya/models/result_state.dart';
 /// Kontrak Repository untuk fitur "Study Spot"
 abstract class StudySpotRepository {
   Stream<ResultState<void>> createStudySpot(StudySpot spot);
-  Stream<ResultState<List<StudySpot>>> getStudySpots();
+  Stream<ResultState<List<StudySpot>>> getStudySpots(String groupId);
   Stream<ResultState<void>> updateStudySpot(StudySpot spot);
   Stream<ResultState<void>> deleteStudySpot(String spotId);
 }
@@ -94,12 +94,12 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
   }
 
   @override
-  Stream<ResultState<List<StudySpot>>> getStudySpots() async* {
+  Stream<ResultState<List<StudySpot>>> getStudySpots(String groupId) async* {
     yield const ResultStateLoading();
     try {
       final collection = _spotsCollection;
       if (collection != null) {
-        final querySnapshot = await collection.get();
+        final querySnapshot = await collection.where('groupId', isEqualTo: groupId).get();
         final spotList = <StudySpot>[];
 
         for (var doc in querySnapshot.docs) {

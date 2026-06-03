@@ -7,11 +7,11 @@ import 'package:ajarin_ya/models/result_state.dart';
 /// Kontrak Repository untuk fitur "Request Barter Skill"
 abstract class BarterRepository {
   Stream<ResultState<void>> createBarterRequest(BarterRequest request);
-  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId);
+  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId, String groupId);
   Stream<ResultState<void>> updateBarterRequest(BarterRequest request);
   Stream<ResultState<void>> deleteBarterRequest(String requestId);
   Stream<ResultState<void>> applyBarter(String requestId, String currentUserId);
-  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId);
+  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId, String groupId);
 }
 
 class BarterRepositoryImpl implements BarterRepository {
@@ -70,21 +70,21 @@ class BarterRepositoryImpl implements BarterRepository {
   }
 
   @override
-  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId) async* {
+  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId, String groupId) async* {
     yield const ResultStateLoading();
     try {
       final collection = _barterCollection;
       if (collection != null) {
-        QuerySnapshot<Map<String, dynamic>> querySnapshot;
-        
-        querySnapshot = await collection
-            .where('status', isEqualTo: 'PENDING')
+        final querySnapshot = await collection
+            .where('groupId', isEqualTo: groupId)
             .get();
 
         final requestList = <BarterRequest>[];
         for (var doc in querySnapshot.docs) {
           final request = BarterRequest.fromJson(doc.data(), doc.id);
-          requestList.add(request);
+          if (request.status == 'PENDING') {
+            requestList.add(request);
+          }
         }
 
         yield ResultStateSuccess(requestList);
@@ -103,20 +103,21 @@ class BarterRepositoryImpl implements BarterRepository {
   }
 
   @override
-  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId) async* {
+  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId, String groupId) async* {
     yield const ResultStateLoading();
     try {
       final collection = _barterCollection;
       if (collection != null) {
         final querySnapshot = await collection
-            .where('status', isEqualTo: 'MATCHED')
+            .where('groupId', isEqualTo: groupId)
             .get();
 
         final requestList = <BarterRequest>[];
         for (var doc in querySnapshot.docs) {
           final request = BarterRequest.fromJson(doc.data(), doc.id);
-          // Filter lokal untuk menghindari kebutuhan Composite Index
-          if (request.userId == currentUserId || request.matchedWith == currentUserId) {
+          // Filter lokal untuk status dan userId
+          if (request.status == 'MATCHED' && 
+             (request.userId == currentUserId || request.matchedWith == currentUserId)) {
             requestList.add(request);
           }
         }

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 /// Dilengkapi parsing JSON toleran terhadap null dan pertahanan anti-crash.
 class BarterRequest {
   String requestId;
+  String? groupId;
   String userId;
   String canTeach;
   String wantToLearn;
@@ -13,6 +14,7 @@ class BarterRequest {
 
   BarterRequest({
     this.requestId = '',
+    this.groupId,
     this.userId = '',
     this.canTeach = '',
     this.wantToLearn = '',
@@ -30,6 +32,7 @@ class BarterRequest {
     try {
       return BarterRequest(
         requestId: json['requestId'] as String? ?? documentId,
+        groupId: json['groupId'] as String?,
         userId: json['userId'] as String? ?? '',
         canTeach: json['canTeach'] as String? ?? '',
         wantToLearn: json['wantToLearn'] as String? ?? '',
@@ -52,6 +55,7 @@ class BarterRequest {
   Map<String, dynamic> toJson() {
     return {
       'requestId': requestId,
+      'groupId': groupId,
       'userId': userId,
       'canTeach': canTeach,
       'wantToLearn': wantToLearn,

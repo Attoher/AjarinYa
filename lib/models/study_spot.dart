@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// atau tipe data yang tidak sesuai selama demo simulasi.
 class StudySpot {
   String spotId;
+  String? groupId;
   String name;
   String description;
   GeoPoint? location;
@@ -14,6 +15,7 @@ class StudySpot {
 
   StudySpot({
     this.spotId = '',
+    this.groupId,
     this.name = '',
     this.description = '',
     this.location = const GeoPoint(0.0, 0.0),
@@ -56,6 +58,7 @@ class StudySpot {
     try {
       return StudySpot(
         spotId: json['spotId'] as String? ?? documentId,
+        groupId: json['groupId'] as String?,
         name: json['name'] as String? ?? '',
         description: json['description'] as String? ?? '',
         location: safeLocationParser(json['location']),
@@ -77,6 +80,7 @@ class StudySpot {
   Map<String, dynamic> toJson() {
     return {
       'spotId': spotId,
+      'groupId': groupId,
       'name': name,
       'description': description,
       'location': location,

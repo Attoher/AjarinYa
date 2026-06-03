@@ -21,9 +21,9 @@ class StudySpotViewModel extends ChangeNotifier {
   ResultState<void> get crudActionState => _crudActionState;
 
   /// Memuat seluruh daftar Study Spot dari database (lokal cache jika offline).
-  Future<void> fetchStudySpots() async {
+  Future<void> fetchStudySpots(String groupId) async {
     try {
-      _repository.getStudySpots().listen((result) {
+      _repository.getStudySpots(groupId).listen((result) {
         _studySpotsState = result;
         notifyListeners();
       });

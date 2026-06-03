@@ -24,14 +24,14 @@ class BarterViewModel extends ChangeNotifier {
   ResultState<void> _crudActionState = const ResultStateIdle();
   ResultState<void> get crudActionState => _crudActionState;
 
-  /// Memuat list request barter yang dibuat oleh user lain.
-  Future<void> fetchBarterRequests(String currentUserId) async {
+  /// Memuat list request barter yang dibuat oleh user lain di dalam grup aktif.
+  Future<void> fetchBarterRequests(String currentUserId, String groupId) async {
     try {
-      _repository.getBarterRequests(currentUserId).listen((result) {
+      _repository.getBarterRequests(currentUserId, groupId).listen((result) {
         _barterRequestsState = result;
         notifyListeners();
       });
-      fetchMatchedBarterRequests(currentUserId);
+      fetchMatchedBarterRequests(currentUserId, groupId);
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
       developer.log(
@@ -45,10 +45,10 @@ class BarterViewModel extends ChangeNotifier {
     }
   }
 
-  /// Memuat list request barter yang sudah matched (riwayat).
-  Future<void> fetchMatchedBarterRequests(String currentUserId) async {
+  /// Memuat list request barter yang sudah matched (riwayat) di grup aktif.
+  Future<void> fetchMatchedBarterRequests(String currentUserId, String groupId) async {
     try {
-      _repository.getMatchedBarters(currentUserId).listen((result) {
+      _repository.getMatchedBarters(currentUserId, groupId).listen((result) {
         _matchedRequestsState = result;
         notifyListeners();
       });

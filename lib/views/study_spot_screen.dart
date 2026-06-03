@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
+import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 
 class StudySpotScreen extends StatefulWidget {
   const StudySpotScreen({super.key});
@@ -31,7 +32,11 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<StudySpotViewModel>(context, listen: false).fetchStudySpots();
+      final authVm = Provider.of<AuthViewModel>(context, listen: false);
+      final activeGroupId = authVm.user?.activeGroupId;
+      if (activeGroupId != null && activeGroupId.isNotEmpty) {
+        Provider.of<StudySpotViewModel>(context, listen: false).fetchStudySpots(activeGroupId);
+      }
     });
   }
 
@@ -142,8 +147,12 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState?.validate() ?? false) {
+                  final authVm = Provider.of<AuthViewModel>(context, listen: false);
+                  final activeGroupId = authVm.user?.activeGroupId;
+
                   final spot = StudySpot(
                     spotId: existingSpot?.spotId ?? '',
+                    groupId: activeGroupId,
                     name: _nameController.text,
                     description: _descController.text,
                     location: GeoPoint(dialogLat, dialogLng),
@@ -170,7 +179,10 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                        );
                     } else {
                        Navigator.pop(dialogCtx);
-                       vm.fetchStudySpots();
+                       final activeGroupId = Provider.of<AuthViewModel>(context, listen: false).user?.activeGroupId;
+                       if (activeGroupId != null && activeGroupId.isNotEmpty) {
+                         vm.fetchStudySpots(activeGroupId);
+                       }
                        ScaffoldMessenger.of(context).showSnackBar(
                          SnackBar(content: Text(existingSpot == null ? 'Study Spot berhasil didaftarkan ke Firestore!' : 'Study Spot berhasil diperbarui!'), backgroundColor: Colors.green),
                        );
@@ -212,6 +224,31 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeGroupId = context.watch<AuthViewModel>().user?.activeGroupId;
+    
+    if (activeGroupId == null || activeGroupId.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          title: const Text('Study Spot Explorer', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: AppTheme.primaryColor,
+          iconTheme: const IconThemeData(color: Colors.white),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.group_off, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text('Silakan pilih atau gabung grup terlebih dahulu', style: TextStyle(fontSize: 16)),
+              const Text('untuk melihat dan berbagi Study Spot.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -223,7 +260,13 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Muat ulang data',
-            onPressed: () => Provider.of<StudySpotViewModel>(context, listen: false).fetchStudySpots(),
+            onPressed: () {
+              final authVm = Provider.of<AuthViewModel>(context, listen: false);
+              final groupId = authVm.user?.activeGroupId;
+              if (groupId != null && groupId.isNotEmpty) {
+                Provider.of<StudySpotViewModel>(context, listen: false).fetchStudySpots(groupId);
+              }
+            },
           )
         ],
       ),
@@ -400,7 +443,13 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
               ),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => vm.fetchStudySpots(),
+                onPressed: () {
+                  final authVm = Provider.of<AuthViewModel>(context, listen: false);
+                  final activeGroup = authVm.user?.activeGroupId;
+                  if (activeGroup != null && activeGroup.isNotEmpty) {
+                    vm.fetchStudySpots(activeGroup);
+                  }
+                },
                 child: const Text('Muat Ulang'),
               ),
             ],

@@ -36,8 +36,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     
     Future.microtask(() {
       if (mounted) {
-        context.read<StudySpotViewModel>().fetchStudySpots();
-        context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '');
+        final authVm = context.read<AuthViewModel>();
+        final activeGroupId = authVm.user?.activeGroupId;
+        if (activeGroupId != null && activeGroupId.isNotEmpty) {
+          context.read<StudySpotViewModel>().fetchStudySpots(activeGroupId);
+          context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '', activeGroupId);
+        }
         context.read<NotesViewModel>().loadNotes();
         context.read<QuestionViewModel>().loadQuestions();
       }
