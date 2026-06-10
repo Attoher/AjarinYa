@@ -15,18 +15,14 @@ class QuestionViewModel extends ChangeNotifier {
   ResultState<List<Question>> _state = const ResultStateLoading();
 
   QuestionViewModel({QuestionRepository? questionRepository})
-    : _questionRepository = questionRepository ?? QuestionRepositoryImpl() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => loadQuestions());
-  }
+    : _questionRepository = questionRepository ?? QuestionRepositoryImpl();
 
   List<Question> get questions => _questions;
   ResultState<List<Question>> get state => _state;
 
-  void loadQuestions() {
+  void loadQuestions([String? groupId]) {
     _questionsSubscription?.cancel();
-    _questionsSubscription = _questionRepository.getQuestions().listen((
-      result,
-    ) {
+    _questionsSubscription = _questionRepository.getQuestions(groupId).listen((result) {
       _state = result;
       if (result is ResultStateSuccess<List<Question>>) {
         _questions = result.data;

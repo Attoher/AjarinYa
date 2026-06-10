@@ -12,6 +12,7 @@ import 'package:ajarin_ya/views/barter_request_screen.dart';
 import 'package:ajarin_ya/views/notes_collection_screen.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
 import 'package:ajarin_ya/views/group_gate_screen.dart';
+import 'package:ajarin_ya/views/private_chat_screen.dart';
 import 'package:ajarin_ya/models/study_spot.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
@@ -43,7 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '', activeGroupId);
         }
         context.read<NotesViewModel>().loadNotes();
-        context.read<QuestionViewModel>().loadQuestions();
+        context.read<QuestionViewModel>().loadQuestions(activeGroupId);
       }
     });
   }
@@ -494,6 +495,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 28),
                     
+                    _buildActiveChats(barterViewModel, authViewModel),
+                    
                     _buildSectionHeader(
                       icon: Icons.explore_rounded,
                       color: AppTheme.primaryDark,
@@ -716,8 +719,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildLiveBarters(BarterViewModel vm) {
     final state = vm.barterRequestsState;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (state is ResultStateSuccess<List<BarterRequest>>) {
-      final list = state.data;
+      final list = state.data.where((r) => r.userId != currentUserId).toList();
       if (list.isEmpty) {
         return _buildEmptyState('Tidak ada penawaran barter mentor dari orang lain.');
       }
@@ -813,7 +817,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
-              backgroundColor: AppTheme.accentColor.withOpacity(0.1),
+              backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
               child: Text(q.avatar, style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
             title: Text(q.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
@@ -848,14 +852,274 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Center(
         child: Text(
           text,
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+              )
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildLiveStudySpots(StudySpotViewModel vm) {
+    final state = vm.studySpotsState;
+    if (state is ResultStateSuccess<List<StudySpot>>) {
+      final list = state.data;
+      if (list.isEmpty) {
+        return _buildEmptyState('Belum ada spot belajar yang terdaftar.');
+      }
+      final showList = list.take(2).toList();
+      return Column(
+        children: showList.map((spot) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.softShadow,
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                child: const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
+              ),
+              title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+              subtitle: Text(spot.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              trailing: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StudySpotScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Buka Peta', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    }
+    return const Center(child: SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2)));
+  }
+
+  Widget _buildLiveBarters(BarterViewModel vm) {
+    final state = vm.barterRequestsState;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (state is ResultStateSuccess<List<BarterRequest>>) {
+      final list = state.data.where((r) => r.userId != currentUserId).toList();
+      if (list.isEmpty) {
+        return _buildEmptyState('Tidak ada penawaran barter mentor dari orang lain.');
+      }
+      final showList = list.take(2).toList();
+      return Column(
+        children: showList.map((req) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.softShadow,
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.school, color: AppTheme.primaryColor, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Bisa: ${req.canTeach}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.menu_book, color: AppTheme.primaryColor, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Mau belajar: ${req.wantToLearn}',
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11, color: AppTheme.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const BarterRequestScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Match', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    }
+    return const Center(child: SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2)));
+  }
+
+  Widget _buildLiveQuestions(QuestionViewModel vm) {
+    final list = vm.questions;
+    if (list.isEmpty) {
+      return _buildEmptyState('Belum ada pertanyaan yang diajukan di forum.');
+    }
+    final showList = list.take(2).toList();
+    return Column(
+      children: showList.map((q) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.softShadow,
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
+              child: Text(q.avatar, style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            title: Text(q.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+            subtitle: Text('Kategori: ${q.tag} • ${q.replies.length} Jawaban', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            trailing: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AnswerQuestionScreen(questionId: q.id)),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Bantu Jawab', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEmptyState(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveChats(BarterViewModel barterVm, AuthViewModel authVm) {
+    final state = barterVm.matchedRequestsState;
+    final currentUserId = authVm.user?.uid ?? '';
+    if (state is ResultStateSuccess<List<BarterRequest>>) {
+      final matchedList = state.data.where((r) => 
+        r.status == 'MATCHED' && 
+        (r.userId == currentUserId || r.matchedWith == currentUserId)
+      ).toList();
+
+      if (matchedList.isEmpty) return const SizedBox.shrink();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            icon: Icons.chat_bubble_outline_rounded,
+            color: AppTheme.primaryColor,
+            bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+            label: 'CHAT BARTER AKTIF',
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: matchedList.map((req) {
+              final isOwner = req.userId == currentUserId;
+              final partnerName = isOwner ? 'Partner Barter' : req.userName;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.softShadow,
+                  border: Border.all(color: Colors.grey.shade100),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: CircleAvatar(
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    child: const Icon(Icons.chat_bubble_rounded, color: AppTheme.primaryColor, size: 20),
+                  ),
+                  title: Text(
+                    'Chat dengan ${partnerName ?? 'Partner'}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    'Belajar: ${isOwner ? req.wantToLearn : req.canTeach}',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.primaryColor),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatScreen(barterRequest: req)));
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
   }
 }

@@ -77,8 +77,8 @@ class ExploreScreen extends StatelessWidget {
         ),
         body: const TabBarView(
           children: [
-            StudySpotScreen(),
-            BarterRequestScreen(),
+            StudySpotScreen(isStandalone: false),
+            BarterRequestScreen(isStandalone: false),
           ],
         ),
       ),

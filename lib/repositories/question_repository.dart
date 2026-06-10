@@ -7,7 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 abstract class QuestionRepository {
   Stream<ResultState<void>> createQuestion(Question question);
-  Stream<ResultState<List<Question>>> getQuestions();
+  Stream<ResultState<List<Question>>> getQuestions([String? groupId]);
   Stream<ResultState<void>> updateQuestion(Question question);
   Stream<ResultState<void>> deleteQuestion(String questionId);
 }
@@ -165,9 +165,9 @@ class QuestionRepositoryImpl implements QuestionRepository {
   }
 
   @override
-  Stream<ResultState<List<Question>>> getQuestions() async* {
+  Stream<ResultState<List<Question>>> getQuestions([String? groupId]) async* {
     yield const ResultStateLoading();
-    yield ResultStateSuccess(_sortedLocalQuestions());
+    yield ResultStateSuccess(_sortedLocalQuestions(groupId));
 
     final collection = _questionsCollection;
     if (collection == null) {
@@ -175,8 +175,11 @@ class QuestionRepositoryImpl implements QuestionRepository {
     }
 
     try {
-      final snapshots = collection.snapshots();
-      await for (final snapshot in snapshots) {
+      final query = (groupId != null && groupId.isNotEmpty)
+          ? collection.where('groupId', isEqualTo: groupId)
+          : collection as Query<Map<String, dynamic>>;
+
+      await for (final snapshot in query.snapshots()) {
         final questionList =
             snapshot.docs
                 .map((doc) => Question.fromJson(doc.data(), doc.id))
@@ -272,9 +275,12 @@ class QuestionRepositoryImpl implements QuestionRepository {
         : _inMemoryQuestions.add(question);
   }
 
-  static List<Question> _sortedLocalQuestions() {
-    final copy = List<Question>.from(_inMemoryQuestions)
-      ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
-    return copy;
+  static List<Question> _sortedLocalQuestions([String? groupId]) {
+    var source = _inMemoryQuestions as Iterable<Question>;
+    if (groupId != null && groupId.isNotEmpty) {
+      source = source.where((q) => q.groupId == groupId);
+    }
+    return (List<Question>.from(source)
+      ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs)));
   }
 }

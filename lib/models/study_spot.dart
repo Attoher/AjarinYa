@@ -12,6 +12,8 @@ class StudySpot {
   String description;
   GeoPoint? location;
   String createdBy;
+  String? createdByName;
+  String? imageUrl;
 
   StudySpot({
     this.spotId = '',
@@ -20,6 +22,8 @@ class StudySpot {
     this.description = '',
     this.location = const GeoPoint(0.0, 0.0),
     this.createdBy = '',
+    this.createdByName,
+    this.imageUrl,
   });
 
   /// Mengecek apakah spot memiliki data koordinat yang valid dan tidak di koordinat default (0.0, 0.0)
@@ -57,12 +61,14 @@ class StudySpot {
 
     try {
       return StudySpot(
-        spotId: json['spotId'] as String? ?? documentId,
+        spotId: (json['spotId'] as String?)?.isNotEmpty == true ? json['spotId'] as String : documentId,
         groupId: json['groupId'] as String?,
         name: json['name'] as String? ?? '',
         description: json['description'] as String? ?? '',
         location: safeLocationParser(json['location']),
         createdBy: json['createdBy'] as String? ?? '',
+        createdByName: json['createdByName'] as String?,
+        imageUrl: json['imageUrl'] as String?,
       );
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
@@ -85,6 +91,8 @@ class StudySpot {
       'description': description,
       'location': location,
       'createdBy': createdBy,
+      'createdByName': createdByName,
+      'imageUrl': imageUrl,
     };
   }
 }

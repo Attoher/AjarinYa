@@ -65,7 +65,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal membuat request barter ke server: $e');
+      yield ResultStateError(e, 'Gagal membuat request barter ke server: $e');
     }
   }
 
@@ -98,7 +98,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal memuat daftar request barter dari server: $e');
+      yield ResultStateError(e, 'Gagal memuat daftar request barter dari server: $e');
     }
   }
 
@@ -133,7 +133,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal memuat riwayat match barter: $e');
+      yield ResultStateError(e, 'Gagal memuat riwayat match barter: $e');
     }
   }
 
@@ -147,7 +147,7 @@ class BarterRepositoryImpl implements BarterRepository {
       
       final collection = _barterCollection;
       if (collection != null) {
-        await collection.doc(request.requestId).set(request.toJson());
+        await collection.doc(request.requestId).set(request.toJson(), SetOptions(merge: true));
       } else {
         throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
@@ -160,7 +160,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal mengupdate request barter di server: $e');
+      yield ResultStateError(e, 'Gagal mengupdate request barter di server: $e');
     }
   }
 
@@ -187,7 +187,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal menghapus request barter di server: $e');
+      yield ResultStateError(e, 'Gagal menghapus request barter di server: $e');
     }
   }
 
@@ -252,7 +252,7 @@ class BarterRepositoryImpl implements BarterRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, e is FirebaseException ? e.message ?? 'Gagal memproses barter.' : e.toString());
+      yield ResultStateError(e, e is FirebaseException ? e.message ?? 'Gagal memproses barter.' : e.toString());
     }
   }
 }

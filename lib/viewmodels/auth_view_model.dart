@@ -119,6 +119,10 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> updateAvatarUrl(String url) async {
+    await _authRepository.updateAvatarUrl(url);
+  }
+
   Future<bool> leaveGroup(String groupId) async {
     _setLoading(true);
     _setErrorMessage(null);

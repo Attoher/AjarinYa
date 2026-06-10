@@ -47,7 +47,7 @@ class NotesRepositoryImpl implements NotesRepository {
       yield const ResultStateSuccess(null);
     } catch (e) {
       developer.log('ERROR createNote: $e', name: 'NOTES_DB');
-      yield ResultStateError(e as Exception, 'Gagal menyimpan catatan: $e');
+      yield ResultStateError(e, 'Gagal menyimpan catatan: $e');
     }
   }
 
@@ -63,7 +63,7 @@ class NotesRepositoryImpl implements NotesRepository {
       yield ResultStateSuccess(notes);
     } catch (e) {
       developer.log('ERROR getNotes: $e', name: 'NOTES_DB');
-      yield ResultStateError(e as Exception, 'Gagal mengambil catatan: $e');
+      yield ResultStateError(e, 'Gagal mengambil catatan: $e');
     }
   }
 
@@ -80,7 +80,7 @@ class NotesRepositoryImpl implements NotesRepository {
       yield const ResultStateSuccess(null);
     } catch (e) {
       developer.log('ERROR updateNote: $e', name: 'NOTES_DB');
-      yield ResultStateError(e as Exception, 'Gagal memperbarui catatan: $e');
+      yield ResultStateError(e, 'Gagal memperbarui catatan: $e');
     }
   }
 
@@ -97,7 +97,7 @@ class NotesRepositoryImpl implements NotesRepository {
       yield const ResultStateSuccess(null);
     } catch (e) {
       developer.log('ERROR deleteNote: $e', name: 'NOTES_DB');
-      yield ResultStateError(e as Exception, 'Gagal menghapus catatan: $e');
+      yield ResultStateError(e, 'Gagal menghapus catatan: $e');
     }
   }
 }

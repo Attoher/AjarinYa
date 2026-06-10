@@ -18,6 +18,7 @@ abstract class AuthRepository {
   Future<void> joinGroup(String groupId, {String? groupName});
   Future<void> leaveGroup(String groupId);
   Future<void> switchActiveGroup(String groupId);
+  Future<void> updateAvatarUrl(String url);
   Future<void> signOut();
   UserProfile? get currentUser;
 }
@@ -26,6 +27,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final FirebaseAuth? _customAuth;
   final FirebaseFirestore? _customDb;
   final _authStateController = StreamController<UserProfile?>.broadcast();
+  StreamSubscription<DocumentSnapshot>? _userDocSubscription;
   UserProfile? _currentCachedUser;
   bool _firebaseAvailable = true;
 
@@ -33,6 +35,11 @@ class AuthRepositoryImpl implements AuthRepository {
     : _customAuth = auth,
       _customDb = db {
     _initAuthState();
+  }
+
+  void _disposeSubscription() {
+    _userDocSubscription?.cancel();
+    _userDocSubscription = null;
   }
 
   FirebaseAuth? get _auth {
@@ -128,7 +135,9 @@ class AuthRepositoryImpl implements AuthRepository {
           );
           _currentCachedUser = profile;
           _authStateController.add(profile);
+          _listenToUserDocument(user.uid);
         } else {
+          _disposeSubscription();
           _currentCachedUser = null;
           _authStateController.add(null);
         }
@@ -139,6 +148,32 @@ class AuthRepositoryImpl implements AuthRepository {
         name: 'AUTH_DIAGNOSTICS',
       );
     }
+  }
+
+  void _listenToUserDocument(String uid) {
+    final db = _db;
+    if (db == null) return;
+    
+    _disposeSubscription();
+    _userDocSubscription = db.collection('users').doc(uid).snapshots().listen((doc) async {
+      if (doc.exists && doc.data() != null) {
+        final profile = UserProfile.fromJson(doc.data()!);
+        
+        // Cek jika activeGroupId sudah tidak ada di groupIds (misal di-kick)
+        if (profile.activeGroupId != null && !profile.groupIds.contains(profile.activeGroupId)) {
+          final newActiveGroupId = profile.groupIds.isNotEmpty ? profile.groupIds.first : null;
+          // Update di Firestore
+          await db.collection('users').doc(uid).update({
+            'activeGroupId': newActiveGroupId,
+          });
+          // State akan terupdate pada emit berikutnya
+          return;
+        }
+
+        _currentCachedUser = profile;
+        _authStateController.add(profile);
+      }
+    });
   }
 
   @override
@@ -169,6 +204,7 @@ class AuthRepositoryImpl implements AuthRepository {
           );
           _currentCachedUser = profile;
           _authStateController.add(profile);
+          _listenToUserDocument(user.uid);
           return profile;
         }
       } catch (e) {
@@ -218,6 +254,7 @@ class AuthRepositoryImpl implements AuthRepository {
           );
           _currentCachedUser = profile;
           _authStateController.add(profile);
+          _listenToUserDocument(user.uid);
           return profile;
         }
       } catch (e) {
@@ -241,6 +278,7 @@ class AuthRepositoryImpl implements AuthRepository {
         developer.log('Firebase signOut gagal: $e', name: 'AUTH_DIAGNOSTICS');
       }
     }
+    _disposeSubscription();
     _currentCachedUser = null;
     _authStateController.add(null);
   }
@@ -368,6 +406,33 @@ class AuthRepositoryImpl implements AuthRepository {
       _currentCachedUser = updatedProfile;
       _authStateController.add(updatedProfile);
     }
+  }
+
+  @override
+  Future<void> updateAvatarUrl(String url) async {
+    if (_currentCachedUser == null) return;
+    final updatedProfile = UserProfile(
+      uid: _currentCachedUser!.uid,
+      email: _currentCachedUser!.email,
+      displayName: _currentCachedUser!.displayName,
+      avatarUrl: url,
+      groupIds: _currentCachedUser!.groupIds,
+      groupNames: _currentCachedUser!.groupNames,
+      activeGroupId: _currentCachedUser!.activeGroupId,
+    );
+    final db = _db;
+    if (db != null) {
+      try {
+        await db.collection('users').doc(updatedProfile.uid).set(
+          {'avatarUrl': url},
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        developer.log('Failed to update avatarUrl: $e', name: 'AUTH_DIAGNOSTICS');
+      }
+    }
+    _currentCachedUser = updatedProfile;
+    _authStateController.add(updatedProfile);
   }
 
   @override

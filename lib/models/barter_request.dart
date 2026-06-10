@@ -7,6 +7,7 @@ class BarterRequest {
   String requestId;
   String? groupId;
   String userId;
+  String? userName; // displayName of the requestor
   String canTeach;
   String wantToLearn;
   String status; // "PENDING" atau "MATCHED"
@@ -16,6 +17,7 @@ class BarterRequest {
     this.requestId = '',
     this.groupId,
     this.userId = '',
+    this.userName,
     this.canTeach = '',
     this.wantToLearn = '',
     this.status = 'PENDING',
@@ -31,9 +33,10 @@ class BarterRequest {
 
     try {
       return BarterRequest(
-        requestId: json['requestId'] as String? ?? documentId,
+        requestId: (json['requestId'] as String?)?.isNotEmpty == true ? json['requestId'] as String : documentId,
         groupId: json['groupId'] as String?,
         userId: json['userId'] as String? ?? '',
+        userName: json['userName'] as String?,
         canTeach: json['canTeach'] as String? ?? '',
         wantToLearn: json['wantToLearn'] as String? ?? '',
         status: json['status'] as String? ?? 'PENDING',
@@ -57,6 +60,7 @@ class BarterRequest {
       'requestId': requestId,
       'groupId': groupId,
       'userId': userId,
+      'userName': userName,
       'canTeach': canTeach,
       'wantToLearn': wantToLearn,
       'status': status,

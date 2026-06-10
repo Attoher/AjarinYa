@@ -1,9 +1,12 @@
 import 'package:ajarin_ya/models/question.dart';
+import 'package:ajarin_ya/services/supabase_storage_service.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:ajarin_ya/widgets/full_screen_image_viewer.dart';
 
 class AnswerQuestionScreen extends StatefulWidget {
   final String? questionId;
@@ -16,6 +19,9 @@ class AnswerQuestionScreen extends StatefulWidget {
 
 class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
   final _replyController = TextEditingController();
+  final _imagePicker = ImagePicker();
+  XFile? _selectedReplyImage;
+  bool _isSendingReply = false;
 
   @override
   void dispose() {
@@ -23,27 +29,83 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     super.dispose();
   }
 
+  Future<void> _pickReplyImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 4),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Foto Langsung'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final image = await _imagePicker.pickImage(source: source, imageQuality: 80);
+    if (image == null || !mounted) return;
+    setState(() => _selectedReplyImage = image);
+  }
+
   Future<void> _postReply(QuestionViewModel vm, String authorName) async {
     final questionId = widget.questionId;
     if (questionId == null) return;
 
     final text = _replyController.text.trim();
-    if (text.isEmpty) {
+    if (text.isEmpty && _selectedReplyImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Jawaban tidak boleh kosong.')),
       );
       return;
     }
 
+    setState(() => _isSendingReply = true);
+
+    String? imageUrl;
+    if (_selectedReplyImage != null) {
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      imageUrl = await SupabaseStorageService.instance
+          .uploadReplyImage(tempId, _selectedReplyImage!);
+    }
+
+    if (!mounted) return;
+
     await vm.addReply(
       questionId,
       Reply(
         author: authorName.isNotEmpty ? authorName : 'Pengguna',
-        content: text,
+        content: text.isEmpty ? '📷 Lampiran gambar' : text,
+        imageUrl: imageUrl,
       ),
     );
 
     _replyController.clear();
+    setState(() {
+      _selectedReplyImage = null;
+      _isSendingReply = false;
+    });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Jawaban berhasil dipublikasikan.')),
@@ -254,41 +316,90 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
           SafeArea(
             top: false,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _replyController,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Tulis solusi, rumus, atau penjelasan...',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
+                  if (_selectedReplyImage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.image_outlined, size: 16, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _selectedReplyImage!.name,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() => _selectedReplyImage = null),
+                            child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton.filled(
-                    onPressed: () =>
-                        _postReply(questionViewModel, currentUserDisplayName),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                    ),
-                    icon: const Icon(Icons.send),
-                    tooltip: 'Kirim jawaban',
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _isSendingReply ? null : _pickReplyImage,
+                        icon: Icon(
+                          Icons.image_outlined,
+                          color: _selectedReplyImage != null
+                              ? AppTheme.primaryColor
+                              : Colors.grey.shade600,
+                        ),
+                        tooltip: 'Lampirkan gambar',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: TextField(
+                          controller: _replyController,
+                          enabled: !_isSendingReply,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Tulis solusi, rumus, atau penjelasan...',
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _isSendingReply
+                          ? const SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Padding(
+                                padding: EdgeInsets.all(8),
+                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                              ),
+                            )
+                          : IconButton.filled(
+                              onPressed: () => _postReply(
+                                  questionViewModel, currentUserDisplayName),
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                              ),
+                              icon: const Icon(Icons.send),
+                              tooltip: 'Kirim jawaban',
+                            ),
+                    ],
                   ),
                 ],
               ),
@@ -325,7 +436,7 @@ class _AnswerQuestionPicker extends StatelessWidget {
                   Icon(
                     Icons.question_answer_outlined,
                     size: 56,
-                    color: AppTheme.primaryColor.withOpacity(0.2),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -348,7 +459,7 @@ class _AnswerQuestionPicker extends StatelessWidget {
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                       child: Text(
                         question.avatar,
                         style: TextStyle(
@@ -411,7 +522,7 @@ class _QuestionDetailCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                   child: Text(
                     question.avatar,
                     style: TextStyle(
@@ -461,15 +572,25 @@ class _QuestionDetailCard extends StatelessWidget {
               const SizedBox(height: 14),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  question.imageUrl!,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 80,
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    alignment: Alignment.center,
-                    child: const Text('Lampiran gambar tidak bisa dimuat'),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => FullScreenImageViewer(imageUrl: question.imageUrl!, heroTag: 'qd_${question.id}'),
+                    ));
+                  },
+                  child: Hero(
+                    tag: 'qd_${question.id}',
+                    child: Image.network(
+                      question.imageUrl!,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 80,
+                        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                        alignment: Alignment.center,
+                        child: const Text('Lampiran gambar tidak bisa dimuat'),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -607,6 +728,36 @@ class _ReplyCard extends StatelessWidget {
               reply.content,
               style: TextStyle(color: Colors.grey.shade800, height: 1.45),
             ),
+            if ((reply.imageUrl ?? '').isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => FullScreenImageViewer(imageUrl: reply.imageUrl!, heroTag: 'r_${reply.id}'),
+                    ));
+                  },
+                  child: Hero(
+                    tag: 'r_${reply.id}',
+                    child: Image.network(
+                      reply.imageUrl!,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 60,
+                        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Gambar tidak bisa dimuat',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             InkWell(
               onTap: onUpvote,

@@ -2,6 +2,7 @@ class Reply {
   String id;
   String author;
   String content;
+  String? imageUrl;
   int votes;
   bool isBest;
   int createdAtMs;
@@ -11,6 +12,7 @@ class Reply {
     this.id = '',
     required this.author,
     required this.content,
+    this.imageUrl,
     this.votes = 0,
     this.isBest = false,
     int? createdAtMs,
@@ -23,6 +25,7 @@ class Reply {
       id: json['id'] as String? ?? '',
       author: json['author'] as String? ?? 'Pengguna',
       content: json['content'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
       votes: json['votes'] as int? ?? 0,
       isBest: json['isBest'] as bool? ?? false,
       createdAtMs: json['createdAtMs'] as int?,
@@ -35,6 +38,7 @@ class Reply {
       'id': id,
       'author': author,
       'content': content,
+      'imageUrl': imageUrl,
       'votes': votes,
       'isBest': isBest,
       'createdAtMs': createdAtMs,
@@ -46,6 +50,7 @@ class Reply {
     String? id,
     String? author,
     String? content,
+    String? imageUrl,
     int? votes,
     bool? isBest,
     int? createdAtMs,
@@ -55,6 +60,7 @@ class Reply {
       id: id ?? this.id,
       author: author ?? this.author,
       content: content ?? this.content,
+      imageUrl: imageUrl ?? this.imageUrl,
       votes: votes ?? this.votes,
       isBest: isBest ?? this.isBest,
       createdAtMs: createdAtMs ?? this.createdAtMs,
@@ -80,6 +86,7 @@ class Question {
   int updatedAtMs;
   List<Reply> replies;
   String ownerId;
+  String? groupId;
 
   Question({
     this.id = '',
@@ -98,6 +105,7 @@ class Question {
     int? updatedAtMs,
     required this.replies,
     this.ownerId = '',
+    this.groupId,
   }) : createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch,
        updatedAtMs = updatedAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -130,6 +138,7 @@ class Question {
       updatedAtMs: json['updatedAtMs'] as int?,
       replies: parsedReplies,
       ownerId: json['ownerId'] as String? ?? '',
+      groupId: json['groupId'] as String?,
     );
   }
 
@@ -150,6 +159,7 @@ class Question {
       'updatedAtMs': updatedAtMs,
       'replies': replies.map((r) => r.toJson()).toList(),
       'ownerId': ownerId,
+      'groupId': groupId,
     };
   }
 
@@ -170,6 +180,7 @@ class Question {
     int? updatedAtMs,
     List<Reply>? replies,
     String? ownerId,
+    String? groupId,
   }) {
     return Question(
       id: id ?? this.id,
@@ -188,6 +199,7 @@ class Question {
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
       replies: replies ?? List<Reply>.from(this.replies),
       ownerId: ownerId ?? this.ownerId,
+      groupId: groupId ?? this.groupId,
     );
   }
 }

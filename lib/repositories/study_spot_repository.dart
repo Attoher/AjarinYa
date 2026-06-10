@@ -89,7 +89,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal menambahkan lokasi belajar ke server: $e');
+      yield ResultStateError(e, 'Gagal menambahkan lokasi belajar ke server: $e');
     }
   }
 
@@ -118,7 +118,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal memuat daftar lokasi belajar dari server: $e');
+      yield ResultStateError(e, 'Gagal memuat daftar lokasi belajar dari server: $e');
     }
   }
 
@@ -151,7 +151,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
 
       final collection = _spotsCollection;
       if (collection != null) {
-        await collection.doc(spot.spotId).set(spot.toJson());
+        await collection.doc(spot.spotId).set(spot.toJson(), SetOptions(merge: true));
       } else {
         throw Exception('Koneksi database (Firestore) tidak tersedia.');
       }
@@ -164,7 +164,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal mengupdate lokasi belajar di server: $e');
+      yield ResultStateError(e, 'Gagal mengupdate lokasi belajar di server: $e');
     }
   }
 
@@ -191,7 +191,7 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
         error: e,
         stackTrace: stackTrace,
       );
-      yield ResultStateError(e as Exception, 'Gagal menghapus lokasi belajar di server: $e');
+      yield ResultStateError(e, 'Gagal menghapus lokasi belajar di server: $e');
     }
   }
 }

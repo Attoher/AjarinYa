@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/note.dart';
 import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/services/supabase_storage_service.dart';
 import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
+import 'package:ajarin_ya/widgets/full_screen_image_viewer.dart';
 
 class NotesCollectionScreen extends StatefulWidget {
   const NotesCollectionScreen({super.key});
@@ -19,6 +23,9 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   String _newNoteFolder = 'Umum';
+  final _imagePicker = ImagePicker();
+  XFile? _selectedNoteImage;
+  bool _isSavingNote = false;
 
   IconData _folderIcon(String folder) {
     switch (folder) {
@@ -38,6 +45,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
   }
 
   void _showAddNoteBottomSheet(NotesViewModel notesVm) {
+    _selectedNoteImage = null;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -73,7 +81,6 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Dropdown Pilihan Kategori
                     Row(
                       children: [
                         const Text('Kategori:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -93,9 +100,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                   .toList(),
                               onChanged: (val) {
                                 if (val != null) {
-                                  setSheetState(() {
-                                    _newNoteFolder = val;
-                                  });
+                                  setSheetState(() => _newNoteFolder = val);
                                 }
                               },
                             ),
@@ -120,48 +125,133 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // Image picker row
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final source = await showDialog<ImageSource>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Pilih Sumber Gambar', style: TextStyle(fontSize: 16)),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.photo_library),
+                                        title: const Text('Galeri Foto'),
+                                        onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.photo_camera),
+                                        title: const Text('Kamera'),
+                                        onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                            
+                            if (source == null) return;
+
+                            final image = await _imagePicker.pickImage(
+                              source: source,
+                              imageQuality: 80,
+                            );
+                            if (image != null) {
+                              setSheetState(() => _selectedNoteImage = image);
+                            }
+                          },
+                          icon: const Icon(Icons.image_outlined, size: 16),
+                          label: const Text('Lampirkan Gambar', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        if (_selectedNoteImage != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedNoteImage!.name,
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setSheetState(() => _selectedNoteImage = null),
+                            child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (_titleController.text.trim().isNotEmpty && _contentController.text.trim().isNotEmpty) {
-                            // Assign a random pretty pastel color
-                            final colorOptions = [
-                              0xFFFFF8E1, // amber.shade50
-                              0xFFE3F2FD, // blue.shade50
-                              0xFFE8F5E9, // green.shade50
-                              0xFFE3F2FD, // blue.shade50 alt
-                              0xFFE0F2F1, // teal.shade50
-                            ];
-                            final selectedColor = (colorOptions..shuffle()).first;
+                        onPressed: _isSavingNote
+                            ? null
+                            : () async {
+                                if (_titleController.text.trim().isEmpty) return;
+                                setSheetState(() => _isSavingNote = true);
 
-                            final newNote = Note(
-                              title: _titleController.text.trim(),
-                              folder: _newNoteFolder,
-                              content: _contentController.text.trim(),
-                              date: '20 Mei 2026',
-                              isBookmarked: false,
-                              colorValue: selectedColor,
-                            );
+                                String? imageUrl;
+                                if (_selectedNoteImage != null) {
+                                  final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+                                  imageUrl = await SupabaseStorageService.instance
+                                      .uploadNoteImage(tempId, _selectedNoteImage!);
+                                }
 
-                            notesVm.createNote(newNote);
+                                final colorOptions = [
+                                  0xFFFFF8E1,
+                                  0xFFE3F2FD,
+                                  0xFFE8F5E9,
+                                  0xFFE0F2F1,
+                                ];
+                                final selectedColor = (colorOptions..shuffle()).first;
 
-                            _titleController.clear();
-                            _contentController.clear();
-                            Navigator.pop(sheetCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Catatan berhasil ditambahkan ke koleksi Anda!')),
-                            );
-                          }
-                        },
+                                final newNote = Note(
+                                  title: _titleController.text.trim(),
+                                  folder: _newNoteFolder,
+                                  content: _contentController.text.trim().isEmpty
+                                      ? ' '
+                                      : _contentController.text.trim(),
+                                  date: '${DateTime.now().day} ${_monthName(DateTime.now().month)} ${DateTime.now().year}',
+                                  isBookmarked: false,
+                                  colorValue: selectedColor,
+                                  imageUrl: imageUrl,
+                                );
+
+                                notesVm.createNote(newNote);
+
+                                _titleController.clear();
+                                _contentController.clear();
+                                setSheetState(() {
+                                  _selectedNoteImage = null;
+                                  _isSavingNote = false;
+                                });
+                                if (context.mounted) Navigator.pop(sheetCtx);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(content: Text('Catatan berhasil ditambahkan!')),
+                                  );
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal.shade700,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text('Simpan Catatan', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: _isSavingNote
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                              )
+                            : const Text('Simpan Catatan', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -172,6 +262,11 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
         );
       },
     );
+  }
+
+  String _monthName(int month) {
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return names[month - 1];
   }
 
   @override
@@ -351,11 +446,39 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Expanded(
-                                  child: Text(
-                                    note.content,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: Colors.grey.shade700, fontSize: 11, height: 1.3),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        note.content,
+                                        maxLines: (note.imageUrl ?? '').isNotEmpty ? 2 : 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 11, height: 1.3),
+                                      ),
+                                      if ((note.imageUrl ?? '').isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              Navigator.push(context, MaterialPageRoute(
+                                                builder: (_) => FullScreenImageViewer(imageUrl: note.imageUrl!, heroTag: 'n_${note.id}'),
+                                              ));
+                                            },
+                                            child: Hero(
+                                              tag: 'n_${note.id}',
+                                              child: Image.network(
+                                                note.imageUrl!,
+                                                height: 60,
+                                                width: double.infinity,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, e, s) => const SizedBox.shrink(),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -389,6 +512,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90.0),
         child: FloatingActionButton.extended(
+          heroTag: 'notes_fab',
           onPressed: () => _showAddNoteBottomSheet(notesVm),
           backgroundColor: Colors.teal.shade700,
           foregroundColor: Colors.white,

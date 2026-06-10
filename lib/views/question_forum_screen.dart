@@ -1,15 +1,14 @@
-import 'dart:async';
-
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:ajarin_ya/services/supabase_storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:ajarin_ya/widgets/full_screen_image_viewer.dart';
 
 class QuestionForumScreen extends StatefulWidget {
   const QuestionForumScreen({super.key});
@@ -22,8 +21,21 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   final ImagePicker _imagePicker = ImagePicker();
-  static bool get _enableFirebaseStorageUpload => true;
   static bool get _useFullPageQuestionForm => true;
+  String? _lastGroupId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activeGroupId = context.read<AuthViewModel>().user?.activeGroupId;
+    if (activeGroupId != _lastGroupId) {
+      _lastGroupId = activeGroupId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<QuestionViewModel>().loadQuestions(activeGroupId);
+      });
+    }
+  }
 
   static const List<String> _tags = [
     'Fisika',
@@ -150,7 +162,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                       controller: imageUrlController,
                       decoration: InputDecoration(
                         labelText: 'URL gambar soal (opsional)',
-                        hintText: 'Firebase Storage download URL',
+                        hintText: 'URL gambar dari Supabase (opsional)',
                         prefixIcon: const Icon(Icons.image_outlined),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -243,8 +255,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                           }
 
                           var imageUrl = imageUrlController.text.trim();
-                          if (selectedImage != null &&
-                              _enableFirebaseStorageUpload) {
+                          if (selectedImage != null) {
                             setDialogState(() => isUploadingImage = true);
                             final uploadedUrl = await _uploadQuestionImage(
                               selectedImage!,
@@ -252,17 +263,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                             if (dialogBuildContext.mounted) {
                               setDialogState(() => isUploadingImage = false);
                             }
-                            if (uploadedUrl != null) {
-                              imageUrl = uploadedUrl;
-                            }
-                          } else if (selectedImage != null) {
-                            scaffoldMessenger.showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Foto tidak diupload karena Firebase Storage belum tersedia. Posting dilanjutkan tanpa foto.',
-                                ),
-                              ),
-                            );
+                            if (uploadedUrl != null) imageUrl = uploadedUrl;
                           }
 
                           final now = DateTime.now().millisecondsSinceEpoch;
@@ -338,50 +339,19 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   }
 
   Future<String?> _uploadQuestionImage(XFile image) async {
-    try {
-      final bytes = await image.readAsBytes();
-      final safeName = image.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-      final storage = FirebaseStorage.instance;
-      storage.setMaxUploadRetryTime(const Duration(seconds: 6));
-      storage.setMaxOperationRetryTime(const Duration(seconds: 6));
-
-      final ref = storage.ref().child(
-        'question_attachments/${DateTime.now().millisecondsSinceEpoch}_$safeName',
-      );
-
-      final uploadTask = ref.putData(
-        bytes,
-        SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),
-      );
-      final task = await uploadTask.timeout(
-        const Duration(seconds: 8),
-        onTimeout: () async {
-          await uploadTask.cancel();
-          throw TimeoutException('Firebase Storage upload timeout');
-        },
-      );
-      return task.ref.getDownloadURL().timeout(const Duration(seconds: 6));
-    } on TimeoutException {
-      if (!mounted) return null;
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final url = await SupabaseStorageService.instance
+        .uploadQuestionImage(tempId, image);
+    if (url == null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Upload gambar terlalu lama. Pertanyaan tetap diposting tanpa foto.',
+            'Upload gambar gagal. Pertanyaan tetap diposting tanpa foto.',
           ),
         ),
       );
-      return null;
-    } catch (e) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Upload gambar gagal. Pertanyaan tetap diposting tanpa foto. Detail: $e',
-          ),
-        ),
-      );
-      return null;
     }
+    return url;
   }
 
   Future<void> _showQuestionFormPage({
@@ -403,10 +373,15 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
 
     if (!context.mounted || result == null) return;
 
+    final groupId = context.read<AuthViewModel>().user?.activeGroupId;
+    final question = (groupId != null && groupId.isNotEmpty)
+        ? result.question.copyWith(groupId: groupId)
+        : result.question;
+
     if (existingQuestion == null) {
-      await vm.createQuestion(result.question);
+      await vm.createQuestion(question);
     } else {
-      await vm.updateQuestion(result.question);
+      await vm.updateQuestion(question);
     }
 
     if (!context.mounted) return;
@@ -463,6 +438,32 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
     final currentUserDisplayName = context.select<AuthViewModel, String>(
       (authViewModel) => authViewModel.user?.displayName ?? 'Pengguna',
     );
+    final activeGroupId = context.watch<AuthViewModel>().user?.activeGroupId;
+
+    if (activeGroupId == null || activeGroupId.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          title: const Text('Forum Diskusi Soal',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: AppTheme.primaryColor,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.group_off, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text('Silakan pilih atau gabung grup terlebih dahulu',
+                  style: TextStyle(fontSize: 16)),
+              const Text('untuk melihat forum diskusi.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -477,7 +478,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: questionViewModel.loadQuestions,
+            onPressed: () => questionViewModel.loadQuestions(activeGroupId),
           ),
         ],
       ),
@@ -587,6 +588,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90.0),
         child: FloatingActionButton.extended(
+          heroTag: 'question_fab',
           onPressed: () => _showQuestionForm(
             context: context,
             vm: questionViewModel,
@@ -632,7 +634,6 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
   final _contentController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _imagePicker = ImagePicker();
-  static const bool _enableFirebaseStorageUpload = true;
 
   late String _selectedTag;
   XFile? _selectedImage;
@@ -681,7 +682,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
     }
 
     var skippedLocalImage = false;
-    if (_selectedImage != null && _enableFirebaseStorageUpload) {
+    if (_selectedImage != null) {
       setState(() => _isSubmitting = true);
       final uploadedUrl = await _uploadSelectedImage(_selectedImage!);
       if (!mounted) return;
@@ -689,10 +690,8 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
         imageUrl = uploadedUrl;
       } else {
         skippedLocalImage = true;
-        setState(() => _isSubmitting = false);
       }
-    } else {
-      skippedLocalImage = _selectedImage != null;
+      setState(() => _isSubmitting = false);
     }
 
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -731,39 +730,19 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
   }
 
   Future<String?> _uploadSelectedImage(XFile image) async {
-    try {
-      final bytes = await image.readAsBytes();
-      final safeName = image.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-      final storage = FirebaseStorage.instance;
-      storage.setMaxUploadRetryTime(const Duration(seconds: 6));
-      storage.setMaxOperationRetryTime(const Duration(seconds: 6));
-
-      final ref = storage.ref().child(
-        'question_attachments/${DateTime.now().millisecondsSinceEpoch}_$safeName',
-      );
-      final uploadTask = ref.putData(
-        bytes,
-        SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),
-      );
-      final snapshot = await uploadTask.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () async {
-          await uploadTask.cancel();
-          throw TimeoutException('Firebase Storage upload timeout');
-        },
-      );
-      return snapshot.ref.getDownloadURL().timeout(const Duration(seconds: 6));
-    } catch (e) {
-      if (!mounted) return null;
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final url = await SupabaseStorageService.instance
+        .uploadQuestionImage(tempId, image);
+    if (url == null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            'Upload gambar gagal, posting dilanjutkan tanpa foto. Detail: $e',
+            'Upload gambar gagal, posting dilanjutkan tanpa foto.',
           ),
         ),
       );
-      return null;
     }
+    return url;
   }
 
   @override
@@ -977,7 +956,7 @@ class _QuestionCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                     radius: 17,
                     child: Text(
                       question.avatar,
@@ -1079,16 +1058,26 @@ class _QuestionCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    question.imageUrl!,
-                    height: 130,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 64,
-                      color: AppTheme.primaryColor.withOpacity(0.05),
-                      alignment: Alignment.center,
-                      child: const Text('Lampiran gambar tidak bisa dimuat'),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => FullScreenImageViewer(imageUrl: question.imageUrl!, heroTag: 'q_${question.id}'),
+                      ));
+                    },
+                    child: Hero(
+                      tag: 'q_${question.id}',
+                      child: Image.network(
+                        question.imageUrl!,
+                        height: 130,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 64,
+                          color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                          alignment: Alignment.center,
+                          child: const Text('Lampiran gambar tidak bisa dimuat'),
+                        ),
+                      ),
                     ),
                   ),
                 ),

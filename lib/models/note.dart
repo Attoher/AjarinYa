@@ -7,6 +7,7 @@ class Note {
   bool isBookmarked;
   final int colorValue;
   final String ownerId;
+  final String? imageUrl;
 
   Note({
     this.id = '',
@@ -17,6 +18,7 @@ class Note {
     this.isBookmarked = false,
     required this.colorValue,
     this.ownerId = '',
+    this.imageUrl,
   });
 
   factory Note.fromJson(Map<String, dynamic> json, String documentId) {
@@ -27,8 +29,9 @@ class Note {
       content: json['content'] as String? ?? '',
       date: json['date'] as String? ?? '',
       isBookmarked: json['isBookmarked'] as bool? ?? false,
-      colorValue: json['colorValue'] as int? ?? 0xFFE0F2F1, // Teal default color value
+      colorValue: json['colorValue'] as int? ?? 0xFFE0F2F1,
       ownerId: json['ownerId'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -41,6 +44,7 @@ class Note {
       'isBookmarked': isBookmarked,
       'colorValue': colorValue,
       'ownerId': ownerId,
+      'imageUrl': imageUrl,
     };
   }
 }
