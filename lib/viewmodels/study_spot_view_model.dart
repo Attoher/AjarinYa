@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:ajarin_ya/models/study_spot.dart';
@@ -12,6 +13,8 @@ class StudySpotViewModel extends ChangeNotifier {
   StudySpotViewModel({StudySpotRepository? repository})
       : _repository = repository ?? StudySpotRepositoryImpl();
 
+  StreamSubscription<ResultState<List<StudySpot>>>? _spotsSub;
+
   // State untuk menampung List lokasi belajar (Study Spot) yang terdaftar
   ResultState<List<StudySpot>> _studySpotsState = const ResultStateIdle();
   ResultState<List<StudySpot>> get studySpotsState => _studySpotsState;
@@ -20,21 +23,25 @@ class StudySpotViewModel extends ChangeNotifier {
   ResultState<void> _crudActionState = const ResultStateIdle();
   ResultState<void> get crudActionState => _crudActionState;
 
-  /// Memuat seluruh daftar Study Spot dari database (lokal cache jika offline).
+  /// Memuat seluruh daftar Study Spot dari database (real-time stream).
   Future<void> fetchStudySpots(String groupId) async {
+    _spotsSub?.cancel();
+    _studySpotsState = const ResultStateLoading();
+    notifyListeners();
     try {
-      _repository.getStudySpots(groupId).listen((result) {
-        _studySpotsState = result;
-        notifyListeners();
-      });
-    } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
-      developer.log(
-        'ERROR saat fetchStudySpots: $e',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
+      _spotsSub = _repository.getStudySpots(groupId).listen(
+        (result) {
+          _studySpotsState = result;
+          notifyListeners();
+        },
+        onError: (e, s) {
+          developer.log('ERROR saat fetchStudySpots: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: s);
+          _studySpotsState = ResultStateError(e, 'Gagal mengambil daftar lokasi belajar.');
+          notifyListeners();
+        },
       );
+    } catch (e, stackTrace) {
+      developer.log('ERROR saat fetchStudySpots: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: stackTrace);
       _studySpotsState = ResultStateError(e, 'Gagal mengambil daftar lokasi belajar.');
       notifyListeners();
     }
@@ -125,5 +132,11 @@ class StudySpotViewModel extends ChangeNotifier {
   void resetCrudActionState() {
     _crudActionState = const ResultStateIdle();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _spotsSub?.cancel();
+    super.dispose();
   }
 }

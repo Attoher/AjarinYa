@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'dart:io';
 void main() {
   final f = File('lib/views/answer_question_screen.dart');

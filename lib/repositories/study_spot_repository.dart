@@ -94,32 +94,25 @@ class StudySpotRepositoryImpl implements StudySpotRepository {
   }
 
   @override
-  Stream<ResultState<List<StudySpot>>> getStudySpots(String groupId) async* {
-    yield const ResultStateLoading();
-    try {
-      final collection = _spotsCollection;
-      if (collection != null) {
-        final querySnapshot = await collection.where('groupId', isEqualTo: groupId).get();
-        final spotList = <StudySpot>[];
-
-        for (var doc in querySnapshot.docs) {
-          final spot = StudySpot.fromJson(doc.data(), doc.id);
-          spotList.add(spot);
-        }
-        
-        yield ResultStateSuccess(spotList);
-      } else {
-        throw Exception('Koneksi database (Firestore) tidak tersedia.');
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'ERROR di getStudySpots: $e.',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      yield ResultStateError(e, 'Gagal memuat daftar lokasi belajar dari server: $e');
+  Stream<ResultState<List<StudySpot>>> getStudySpots(String groupId) {
+    final collection = _spotsCollection;
+    if (collection == null) {
+      return Stream.value(ResultStateError(Exception('DB tidak tersedia'), 'Database tidak tersedia'));
     }
+    return collection
+        .where('groupId', isEqualTo: groupId)
+        .snapshots()
+        .map<ResultState<List<StudySpot>>>((snapshot) {
+          try {
+            final list = snapshot.docs
+                .map((doc) => StudySpot.fromJson(doc.data(), doc.id))
+                .toList();
+            return ResultStateSuccess(list);
+          } catch (e) {
+            developer.log('ERROR memproses getStudySpots: $e', name: 'INTEGRITY_DIAGNOSTICS');
+            return ResultStateError(e, 'Gagal memproses data study spot: $e');
+          }
+        });
   }
 
   @override

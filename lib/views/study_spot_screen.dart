@@ -54,7 +54,9 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
       }
       if (permission == LocationPermission.deniedForever) return;
       
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
       if (mounted) {
         _mapController.move(LatLng(pos.latitude, pos.longitude), 16.0);
       }
@@ -596,7 +598,7 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
 
       return ListView.builder(
         itemCount: spots.length,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         itemBuilder: (context, index) {
           final spot = spots[index];
           final hasGeo = spot.hasValidLocation();
@@ -634,11 +636,12 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 subtitle: Text(
-                  'Koordinat: ${spot.getSafeLatitude().toStringAsFixed(5)}, ${spot.getSafeLongitude().toStringAsFixed(5)}',
+                  spot.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: hasGeo ? Colors.grey.shade600 : Colors.red.shade800,
+                    color: Colors.grey.shade600,
                     fontSize: 11,
-                    fontWeight: hasGeo ? FontWeight.normal : FontWeight.bold,
                   ),
                 ),
                 children: [

@@ -15,7 +15,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
   CollectionReference<Map<String, dynamic>>? _messagesCollection(String chatId) {
     if (_db == null) return null;
-    return _db!.collection('barter_requests').doc(chatId).collection('messages');
+    return _db.collection('barter_requests').doc(chatId).collection('messages');
   }
 
   @override

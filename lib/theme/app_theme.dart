@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
@@ -15,7 +15,7 @@ class AppTheme {
   // --- Shadows (Soft Neumorphic/Glassmorphism feel) ---
   static List<BoxShadow> get softShadow => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.04),
+          color: Colors.black.withValues(alpha: 0.04),
           blurRadius: 16,
           offset: const Offset(0, 4),
         ),
@@ -23,7 +23,7 @@ class AppTheme {
       
   static List<BoxShadow> get hoverShadow => [
         BoxShadow(
-          color: primaryColor.withOpacity(0.12),
+          color: primaryColor.withValues(alpha: 0.12),
           blurRadius: 24,
           offset: const Offset(0, 8),
         ),
@@ -37,7 +37,6 @@ class AppTheme {
         seedColor: primaryColor,
         primary: primaryColor,
         secondary: accentColor,
-        background: backgroundColor,
         surface: surfaceColor,
         error: errorColor,
       ),

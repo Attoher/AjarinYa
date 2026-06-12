@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -314,7 +314,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.3),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           )
@@ -434,7 +434,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.1),
+                            color: Colors.teal.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -464,7 +464,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                   children: [
                                     CircleAvatar(
                                       radius: 14,
-                                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                                       child: Text(
                                         peer['name']!.isNotEmpty ? peer['name']![0].toUpperCase() : '?',
                                         style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
@@ -621,7 +621,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? activeColor.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? activeColor : Colors.grey.shade300,

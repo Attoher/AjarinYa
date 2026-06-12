@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
@@ -11,6 +12,9 @@ class BarterViewModel extends ChangeNotifier {
 
   BarterViewModel({BarterRepository? repository})
       : _repository = repository ?? BarterRepositoryImpl();
+
+  StreamSubscription<ResultState<List<BarterRequest>>>? _barterSub;
+  StreamSubscription<ResultState<List<BarterRequest>>>? _matchedSub;
 
   // State untuk menyimpan List request barter skill yang aktif
   ResultState<List<BarterRequest>> _barterRequestsState = const ResultStateIdle();
@@ -26,20 +30,24 @@ class BarterViewModel extends ChangeNotifier {
 
   /// Memuat list request barter yang dibuat oleh user lain di dalam grup aktif.
   Future<void> fetchBarterRequests(String currentUserId, String groupId) async {
+    _barterSub?.cancel();
+    _barterRequestsState = const ResultStateLoading();
+    notifyListeners();
     try {
-      _repository.getBarterRequests(currentUserId, groupId).listen((result) {
-        _barterRequestsState = result;
-        notifyListeners();
-      });
+      _barterSub = _repository.getBarterRequests(currentUserId, groupId).listen(
+        (result) {
+          _barterRequestsState = result;
+          notifyListeners();
+        },
+        onError: (e, s) {
+          developer.log('ERROR saat fetchBarterRequests: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: s);
+          _barterRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
+          notifyListeners();
+        },
+      );
       fetchMatchedBarterRequests(currentUserId, groupId);
     } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
-      developer.log(
-        'ERROR saat fetchBarterRequests: $e',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
-      );
+      developer.log('ERROR saat fetchBarterRequests: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: stackTrace);
       _barterRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
       notifyListeners();
     }
@@ -47,19 +55,23 @@ class BarterViewModel extends ChangeNotifier {
 
   /// Memuat list request barter yang sudah matched (riwayat) di grup aktif.
   Future<void> fetchMatchedBarterRequests(String currentUserId, String groupId) async {
+    _matchedSub?.cancel();
+    _matchedRequestsState = const ResultStateLoading();
+    notifyListeners();
     try {
-      _repository.getMatchedBarters(currentUserId, groupId).listen((result) {
-        _matchedRequestsState = result;
-        notifyListeners();
-      });
-    } catch (e, stackTrace) {
-      debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
-      developer.log(
-        'ERROR saat fetchMatchedBarterRequests: $e',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
+      _matchedSub = _repository.getMatchedBarters(currentUserId, groupId).listen(
+        (result) {
+          _matchedRequestsState = result;
+          notifyListeners();
+        },
+        onError: (e, s) {
+          developer.log('ERROR saat fetchMatchedBarterRequests: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: s);
+          _matchedRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
+          notifyListeners();
+        },
       );
+    } catch (e, stackTrace) {
+      developer.log('ERROR saat fetchMatchedBarterRequests: $e', name: 'INTEGRITY_DIAGNOSTICS', error: e, stackTrace: stackTrace);
       _matchedRequestsState = ResultStateError(e, 'Terjadi kesalahan sistem.');
       notifyListeners();
     }
@@ -129,9 +141,9 @@ class BarterViewModel extends ChangeNotifier {
   }
 
   /// ATOMIC MATCH: Mengajukan barter skill pada request tertentu secara transaksional.
-  Future<void> applyBarter(String requestId, String currentUserId) async {
+  Future<void> applyBarter(String requestId, String currentUserId, {String? currentUserName}) async {
     try {
-      await for (final result in _repository.applyBarter(requestId, currentUserId)) {
+      await for (final result in _repository.applyBarter(requestId, currentUserId, currentUserName: currentUserName)) {
         _crudActionState = result;
         notifyListeners();
         if (result is ResultStateError) break;
@@ -153,5 +165,12 @@ class BarterViewModel extends ChangeNotifier {
   void resetCrudActionState() {
     _crudActionState = const ResultStateIdle();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _barterSub?.cancel();
+    _matchedSub?.cancel();
+    super.dispose();
   }
 }

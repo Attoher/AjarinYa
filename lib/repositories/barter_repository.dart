@@ -10,7 +10,7 @@ abstract class BarterRepository {
   Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId, String groupId);
   Stream<ResultState<void>> updateBarterRequest(BarterRequest request);
   Stream<ResultState<void>> deleteBarterRequest(String requestId);
-  Stream<ResultState<void>> applyBarter(String requestId, String currentUserId);
+  Stream<ResultState<void>> applyBarter(String requestId, String currentUserId, {String? currentUserName});
   Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId, String groupId);
 }
 
@@ -70,71 +70,51 @@ class BarterRepositoryImpl implements BarterRepository {
   }
 
   @override
-  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId, String groupId) async* {
-    yield const ResultStateLoading();
-    try {
-      final collection = _barterCollection;
-      if (collection != null) {
-        final querySnapshot = await collection
-            .where('groupId', isEqualTo: groupId)
-            .get();
-
-        final requestList = <BarterRequest>[];
-        for (var doc in querySnapshot.docs) {
-          final request = BarterRequest.fromJson(doc.data(), doc.id);
-          if (request.status == 'PENDING') {
-            requestList.add(request);
-          }
-        }
-
-        yield ResultStateSuccess(requestList);
-      } else {
-        throw Exception('Koneksi database (Firestore) tidak tersedia.');
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'ERROR di getBarterRequests: $e.',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      yield ResultStateError(e, 'Gagal memuat daftar request barter dari server: $e');
+  Stream<ResultState<List<BarterRequest>>> getBarterRequests(String currentUserId, String groupId) {
+    final collection = _barterCollection;
+    if (collection == null) {
+      return Stream.value(ResultStateError(Exception('DB tidak tersedia'), 'Database tidak tersedia'));
     }
+    return collection
+        .where('groupId', isEqualTo: groupId)
+        .snapshots()
+        .map<ResultState<List<BarterRequest>>>((snapshot) {
+          try {
+            final list = snapshot.docs
+                .map((doc) => BarterRequest.fromJson(doc.data(), doc.id))
+                .where((r) => r.status == 'PENDING')
+                .toList();
+            return ResultStateSuccess(list);
+          } catch (e) {
+            developer.log('ERROR memproses getBarterRequests: $e', name: 'INTEGRITY_DIAGNOSTICS');
+            return ResultStateError(e, 'Gagal memproses data barter: $e');
+          }
+        });
   }
 
   @override
-  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId, String groupId) async* {
-    yield const ResultStateLoading();
-    try {
-      final collection = _barterCollection;
-      if (collection != null) {
-        final querySnapshot = await collection
-            .where('groupId', isEqualTo: groupId)
-            .get();
-
-        final requestList = <BarterRequest>[];
-        for (var doc in querySnapshot.docs) {
-          final request = BarterRequest.fromJson(doc.data(), doc.id);
-          // Filter lokal untuk status dan userId
-          if (request.status == 'MATCHED' && 
-             (request.userId == currentUserId || request.matchedWith == currentUserId)) {
-            requestList.add(request);
-          }
-        }
-
-        yield ResultStateSuccess(requestList);
-      } else {
-        throw Exception('Koneksi database (Firestore) tidak tersedia.');
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'ERROR di getMatchedBarters: $e.',
-        name: 'INTEGRITY_DIAGNOSTICS',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      yield ResultStateError(e, 'Gagal memuat riwayat match barter: $e');
+  Stream<ResultState<List<BarterRequest>>> getMatchedBarters(String currentUserId, String groupId) {
+    final collection = _barterCollection;
+    if (collection == null) {
+      return Stream.value(ResultStateError(Exception('DB tidak tersedia'), 'Database tidak tersedia'));
     }
+    return collection
+        .where('groupId', isEqualTo: groupId)
+        .snapshots()
+        .map<ResultState<List<BarterRequest>>>((snapshot) {
+          try {
+            final list = snapshot.docs
+                .map((doc) => BarterRequest.fromJson(doc.data(), doc.id))
+                .where((r) =>
+                    r.status == 'MATCHED' &&
+                    (r.userId == currentUserId || r.matchedWith == currentUserId))
+                .toList();
+            return ResultStateSuccess(list);
+          } catch (e) {
+            developer.log('ERROR memproses getMatchedBarters: $e', name: 'INTEGRITY_DIAGNOSTICS');
+            return ResultStateError(e, 'Gagal memproses data matched barter: $e');
+          }
+        });
   }
 
   @override
@@ -192,7 +172,7 @@ class BarterRepositoryImpl implements BarterRepository {
   }
 
   @override
-  Stream<ResultState<void>> applyBarter(String requestId, String currentUserId) async* {
+  Stream<ResultState<void>> applyBarter(String requestId, String currentUserId, {String? currentUserName}) async* {
     yield const ResultStateLoading();
     try {
       final collection = _barterCollection;
@@ -237,6 +217,7 @@ class BarterRepositoryImpl implements BarterRepository {
           transaction.update(docRef, {
             'status': 'MATCHED',
             'matchedWith': currentUserId,
+            'matchedWithName': currentUserName,
           });
         });
 

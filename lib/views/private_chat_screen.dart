@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/chat_message.dart';
 import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/services/notification_service.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/chat_view_model.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
@@ -27,7 +28,24 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatViewModel>().subscribeToMessages(widget.barterRequest.requestId);
+      if (!mounted) return;
+      final currentUserId = context.read<AuthViewModel>().user?.uid ?? '';
+      final partnerName = _getOtherParticipantName(currentUserId);
+      context.read<ChatViewModel>().subscribeToMessages(
+        widget.barterRequest.requestId,
+        currentUserId: currentUserId,
+        onPartnerMessage: (msg) {
+          if (!mounted) return;
+          NotificationService().showNotification(
+            context: context,
+            title: partnerName,
+            message: msg.text?.isNotEmpty == true
+                ? msg.text!
+                : (msg.imageUrl != null ? '📷 Gambar' : '...'),
+            icon: Icons.chat_bubble_rounded,
+          );
+        },
+      );
     });
   }
 
@@ -46,11 +64,8 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
 
   String _getOtherParticipantName(String currentUserId) {
     if (widget.barterRequest.userId == currentUserId) {
-      // We are the creator, the other is matchedWith
-      // Unfortunately we don't have matchedWithName in the model right now, so we can just say "Match Anda"
-      return 'Match Mentor Anda';
+      return widget.barterRequest.matchedWithName ?? 'Partner Barter';
     } else {
-      // We are the matchedWith, the other is the creator
       return widget.barterRequest.userName ?? 'Mentor';
     }
   }
@@ -235,6 +250,8 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       message.imageUrl!,
+                      height: 180,
+                      width: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50),
                     ),
@@ -300,7 +317,7 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 3,
             offset: const Offset(0, -1),

@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/note.dart';
 import 'package:ajarin_ya/models/result_state.dart';
-import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/services/supabase_storage_service.dart';
 import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
 import 'package:ajarin_ya/widgets/full_screen_image_viewer.dart';

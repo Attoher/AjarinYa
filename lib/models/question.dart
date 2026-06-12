@@ -1,35 +1,28 @@
-class Reply {
+class Comment {
   String id;
   String author;
+  String authorAvatarUrl;
   String content;
   String? imageUrl;
-  int votes;
-  bool isBest;
   int createdAtMs;
-  int updatedAtMs;
 
-  Reply({
+  Comment({
     this.id = '',
     required this.author,
+    this.authorAvatarUrl = '',
     required this.content,
     this.imageUrl,
-    this.votes = 0,
-    this.isBest = false,
     int? createdAtMs,
-    int? updatedAtMs,
-  }) : createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch,
-       updatedAtMs = updatedAtMs ?? DateTime.now().millisecondsSinceEpoch;
+  }) : createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
-  factory Reply.fromJson(Map<String, dynamic> json) {
-    return Reply(
+  factory Comment.fromJson(Map<String, dynamic> json) {
+    return Comment(
       id: json['id'] as String? ?? '',
       author: json['author'] as String? ?? 'Pengguna',
+      authorAvatarUrl: json['authorAvatarUrl'] as String? ?? '',
       content: json['content'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
-      votes: json['votes'] as int? ?? 0,
-      isBest: json['isBest'] as bool? ?? false,
       createdAtMs: json['createdAtMs'] as int?,
-      updatedAtMs: json['updatedAtMs'] as int?,
     );
   }
 
@@ -37,34 +30,114 @@ class Reply {
     return {
       'id': id,
       'author': author,
+      'authorAvatarUrl': authorAvatarUrl,
+      'content': content,
+      'imageUrl': imageUrl,
+      'createdAtMs': createdAtMs,
+    };
+  }
+
+  Comment copyWith({
+    String? id,
+    String? author,
+    String? authorAvatarUrl,
+    String? content,
+    String? imageUrl,
+    int? createdAtMs,
+  }) {
+    return Comment(
+      id: id ?? this.id,
+      author: author ?? this.author,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      content: content ?? this.content,
+      imageUrl: imageUrl ?? this.imageUrl,
+      createdAtMs: createdAtMs ?? this.createdAtMs,
+    );
+  }
+}
+
+class Reply {
+  String id;
+  String author;
+  String authorAvatarUrl;
+  String content;
+  String? imageUrl;
+  int votes;
+  bool isBest;
+  int createdAtMs;
+  int updatedAtMs;
+  List<Comment> comments;
+
+  Reply({
+    this.id = '',
+    required this.author,
+    this.authorAvatarUrl = '',
+    required this.content,
+    this.imageUrl,
+    this.votes = 0,
+    this.isBest = false,
+    int? createdAtMs,
+    int? updatedAtMs,
+    this.comments = const [],
+  }) : createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch,
+       updatedAtMs = updatedAtMs ?? DateTime.now().millisecondsSinceEpoch;
+
+  factory Reply.fromJson(Map<String, dynamic> json) {
+    final rawComments = json['comments'] as List<dynamic>? ?? [];
+    return Reply(
+      id: json['id'] as String? ?? '',
+      author: json['author'] as String? ?? 'Pengguna',
+      authorAvatarUrl: json['authorAvatarUrl'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
+      votes: json['votes'] as int? ?? 0,
+      isBest: json['isBest'] as bool? ?? false,
+      createdAtMs: json['createdAtMs'] as int?,
+      updatedAtMs: json['updatedAtMs'] as int?,
+      comments: rawComments
+          .map((c) => Comment.fromJson(Map<String, dynamic>.from(c as Map)))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'author': author,
+      'authorAvatarUrl': authorAvatarUrl,
       'content': content,
       'imageUrl': imageUrl,
       'votes': votes,
       'isBest': isBest,
       'createdAtMs': createdAtMs,
       'updatedAtMs': updatedAtMs,
+      'comments': comments.map((c) => c.toJson()).toList(),
     };
   }
 
   Reply copyWith({
     String? id,
     String? author,
+    String? authorAvatarUrl,
     String? content,
     String? imageUrl,
     int? votes,
     bool? isBest,
     int? createdAtMs,
     int? updatedAtMs,
+    List<Comment>? comments,
   }) {
     return Reply(
       id: id ?? this.id,
       author: author ?? this.author,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       content: content ?? this.content,
       imageUrl: imageUrl ?? this.imageUrl,
       votes: votes ?? this.votes,
       isBest: isBest ?? this.isBest,
       createdAtMs: createdAtMs ?? this.createdAtMs,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      comments: comments ?? List<Comment>.from(this.comments),
     );
   }
 }
@@ -73,6 +146,7 @@ class Question {
   String id;
   String author;
   String avatar;
+  String authorAvatarUrl;
   String title;
   String content;
   String tag;
@@ -92,6 +166,7 @@ class Question {
     this.id = '',
     required this.author,
     required this.avatar,
+    this.authorAvatarUrl = '',
     required this.title,
     required this.content,
     required this.tag,
@@ -125,6 +200,7 @@ class Question {
       id: documentId,
       author: json['author'] as String? ?? 'Pengguna',
       avatar: json['avatar'] as String? ?? 'M',
+      authorAvatarUrl: json['authorAvatarUrl'] as String? ?? '',
       title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',
       tag: json['tag'] as String? ?? 'Umum',
@@ -146,6 +222,7 @@ class Question {
     return {
       'author': author,
       'avatar': avatar,
+      'authorAvatarUrl': authorAvatarUrl,
       'title': title,
       'content': content,
       'tag': tag,
@@ -167,6 +244,7 @@ class Question {
     String? id,
     String? author,
     String? avatar,
+    String? authorAvatarUrl,
     String? title,
     String? content,
     String? tag,
@@ -186,6 +264,7 @@ class Question {
       id: id ?? this.id,
       author: author ?? this.author,
       avatar: avatar ?? this.avatar,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       title: title ?? this.title,
       content: content ?? this.content,
       tag: tag ?? this.tag,

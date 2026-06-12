@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/services/api_service.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
@@ -13,9 +13,12 @@ import 'package:ajarin_ya/views/notes_collection_screen.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
 import 'package:ajarin_ya/views/group_gate_screen.dart';
 import 'package:ajarin_ya/views/private_chat_screen.dart';
+import 'package:ajarin_ya/views/profile_screen.dart';
+import 'package:ajarin_ya/views/question_forum_screen.dart';
 import 'package:ajarin_ya/models/study_spot.dart';
 import 'package:ajarin_ya/models/barter_request.dart';
 import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/widgets/user_avatar.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -29,24 +32,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ApiService _apiService = ApiService();
   Map<String, String>? _quote;
   bool _isLoadingQuote = true;
+  String? _lastActiveGroupId;
 
   @override
   void initState() {
     super.initState();
     _fetchQuote();
-    
     Future.microtask(() {
-      if (mounted) {
-        final authVm = context.read<AuthViewModel>();
-        final activeGroupId = authVm.user?.activeGroupId;
+      if (mounted) context.read<NotesViewModel>().loadNotes();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activeGroupId = context.read<AuthViewModel>().user?.activeGroupId;
+    if (activeGroupId != _lastActiveGroupId) {
+      _lastActiveGroupId = activeGroupId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         if (activeGroupId != null && activeGroupId.isNotEmpty) {
           context.read<StudySpotViewModel>().fetchStudySpots(activeGroupId);
-          context.read<BarterViewModel>().fetchBarterRequests(FirebaseAuth.instance.currentUser?.uid ?? '', activeGroupId);
+          context.read<BarterViewModel>().fetchBarterRequests(
+            FirebaseAuth.instance.currentUser?.uid ?? '',
+            activeGroupId,
+          );
+          context.read<QuestionViewModel>().loadQuestions(activeGroupId);
         }
-        context.read<NotesViewModel>().loadNotes();
-        context.read<QuestionViewModel>().loadQuestions(activeGroupId);
-      }
-    });
+      });
+    }
   }
 
   void _fetchQuote() async {
@@ -116,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final isActive = gId == user.activeGroupId;
                     
                     return Card(
-                      color: isActive ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
+                      color: isActive ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -229,21 +243,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
                   ),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.white,
-                    radius: 18,
-                    child: Text(
-                      userInitial,
-                      style: const TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                    ),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 18,
+                      backgroundImage: (user?.avatarUrl ?? '').isNotEmpty
+                          ? NetworkImage(user!.avatarUrl)
+                          : null,
+                      child: (user?.avatarUrl ?? '').isEmpty
+                          ? Text(
+                              userInitial,
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                 ),
@@ -278,9 +303,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -299,7 +324,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           'Hai, $userDisplayName!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                           ),
@@ -316,7 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))
+                                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))
                               ],
                             ),
                             child: Row(
@@ -370,7 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
 
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -394,7 +419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Text(
                                       'Mutiara Hikmah Hari Ini',
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
+                                        color: Colors.white.withValues(alpha: 0.8),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                         letterSpacing: 0.5,
@@ -428,15 +453,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ),
                           ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
                     _buildSectionHeader(
                       icon: Icons.grid_view_rounded,
                       color: AppTheme.primaryDark,
-                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
+                      bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                       label: 'PUSAT NAVIGASI FITUR',
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
 
                     LayoutBuilder(
                       builder: (context, constraints) {
@@ -486,51 +511,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: Icons.rate_review_rounded,
                               colorTheme: AppTheme.accentColor,
                               onTap: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => const AnswerQuestionScreen()));
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestionForumScreen()));
                               },
                             ),
                           ],
                         );
                       },
                     ),
-                    const SizedBox(height: 28),
-                    
+                    const SizedBox(height: 20),
+
                     _buildActiveChats(barterViewModel, authViewModel),
-                    
+
                     _buildSectionHeader(
                       icon: Icons.explore_rounded,
                       color: AppTheme.primaryDark,
-                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
+                      bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                       label: 'SPOT BELAJAR PILIHAN DI ITS',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildLiveStudySpots(studySpotViewModel),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
                     _buildSectionHeader(
                       icon: Icons.people_outline_rounded,
                       color: AppTheme.primaryDark,
-                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
+                      bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                       label: 'BUTUH MENTOR SEBAYA (BARTER SKILL)',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildLiveBarters(barterViewModel),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
                     _buildSectionHeader(
                       icon: Icons.question_answer_rounded,
                       color: AppTheme.primaryDark,
-                      bgColor: AppTheme.primaryColor.withOpacity(0.1),
+                      bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                       label: 'DISKUSI AKTIF - BANTU JAWAB SOAL',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildLiveQuestions(questionViewModel),
-                    
-                    const SizedBox(height: 40),
+
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-              const SizedBox(height: 120),
+              const SizedBox(height: 90),
             ]),
           )
         ],
@@ -545,7 +570,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 20),
@@ -632,7 +657,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: colorTheme.withOpacity(0.1),
+                      color: colorTheme.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, color: colorTheme, size: 20),
@@ -681,18 +706,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final showList = list.take(2).toList();
       return Column(
         children: showList.map((spot) {
-          return Container(
+          return Card(
             margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
+            elevation: 0,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              boxShadow: AppTheme.softShadow,
-              border: Border.all(color: Colors.grey.shade100),
+              side: BorderSide(color: Colors.grey.shade100),
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               leading: CircleAvatar(
-                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                 child: const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
               ),
               title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
@@ -806,19 +831,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final showList = list.take(2).toList();
     return Column(
       children: showList.map((q) {
-        return Container(
+        return Card(
           margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.softShadow,
-            border: Border.all(color: Colors.grey.shade100),
+            side: BorderSide(color: Colors.grey.shade100),
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: CircleAvatar(
+            leading: UserAvatar(
+              url: q.authorAvatarUrl,
+              fallback: q.avatar,
+              radius: 20,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
-              child: Text(q.avatar, style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 12)),
+              fallbackTextColor: AppTheme.accentColor,
             ),
             title: Text(q.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
             subtitle: Text('Kategori: ${q.tag} • ${q.replies.length} Jawaban', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
@@ -884,18 +912,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
             label: 'CHAT BARTER AKTIF',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Column(
             children: matchedList.map((req) {
               final isOwner = req.userId == currentUserId;
               final partnerName = isOwner ? 'Partner Barter' : req.userName;
-              return Container(
+              return Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppTheme.softShadow,
-                  border: Border.all(color: Colors.grey.shade100),
+                  side: BorderSide(color: Colors.grey.shade100),
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -921,7 +949,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
         ],
       );
     }

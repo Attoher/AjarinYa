@@ -14,4 +14,5 @@ class SupabaseConfig {
   static const String bucketNotes     = 'Notes';
   static const String bucketSpots     = 'Spots';
   static const String bucketChats     = 'Chats';
+  static const String bucketComments  = 'Comments';
 }

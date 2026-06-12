@@ -145,6 +145,12 @@ class QuestionViewModel extends ChangeNotifier {
     await updateReply(questionId, reply.copyWith(votes: reply.votes + 1));
   }
 
+  Future<void> toggleSolved(String questionId) async {
+    final question = findQuestion(questionId);
+    if (question == null) return;
+    await updateQuestion(question.copyWith(isSolved: !question.isSolved));
+  }
+
   Future<void> toggleBestReply(String questionId, String replyId) async {
     final question = findQuestion(questionId);
     if (question == null) return;
@@ -166,6 +172,36 @@ class QuestionViewModel extends ChangeNotifier {
         isSolved: replies.any((reply) => reply.isBest),
       ),
     );
+  }
+
+  Future<void> addComment(
+      String questionId, String replyId, Comment comment) async {
+    final question = findQuestion(questionId);
+    if (question == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final newComment = comment.copyWith(
+      id: comment.id.isEmpty ? 'cmt_$now' : comment.id,
+      createdAtMs: now,
+    );
+    final replies = question.replies.map((reply) {
+      if (reply.id != replyId) return reply;
+      return reply.copyWith(
+          comments: [...reply.comments, newComment]);
+    }).toList();
+    await updateQuestion(question.copyWith(replies: replies));
+  }
+
+  Future<void> deleteComment(
+      String questionId, String replyId, String commentId) async {
+    final question = findQuestion(questionId);
+    if (question == null) return;
+    final replies = question.replies.map((reply) {
+      if (reply.id != replyId) return reply;
+      return reply.copyWith(
+          comments:
+              reply.comments.where((c) => c.id != commentId).toList());
+    }).toList();
+    await updateQuestion(question.copyWith(replies: replies));
   }
 
   void _upsertQuestion(Question question, {bool insertFirst = false}) {

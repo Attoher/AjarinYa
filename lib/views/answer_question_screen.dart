@@ -1,7 +1,9 @@
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/services/supabase_storage_service.dart';
+import 'package:ajarin_ya/utils/time_utils.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
+import 'package:ajarin_ya/widgets/user_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
@@ -69,7 +71,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     setState(() => _selectedReplyImage = image);
   }
 
-  Future<void> _postReply(QuestionViewModel vm, String authorName) async {
+  Future<void> _postReply(QuestionViewModel vm, String authorName, String authorAvatarUrl) async {
     final questionId = widget.questionId;
     if (questionId == null) return;
 
@@ -96,6 +98,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
       questionId,
       Reply(
         author: authorName.isNotEmpty ? authorName : 'Pengguna',
+        authorAvatarUrl: authorAvatarUrl,
         content: text.isEmpty ? '📷 Lampiran gambar' : text,
         imageUrl: imageUrl,
       ),
@@ -200,6 +203,7 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUserDisplayName =
         authViewModel.user?.displayName ?? 'Pengguna';
+    final currentUserId = authViewModel.user?.uid ?? '';
     final questionId = widget.questionId;
 
     if (questionId == null) {
@@ -224,6 +228,9 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
       );
     }
 
+    final isQuestionOwner = question.ownerId.isNotEmpty &&
+        question.ownerId == currentUserId;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -233,6 +240,24 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
         ),
         backgroundColor: AppTheme.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          if (isQuestionOwner)
+            Tooltip(
+              message: question.isSolved ? 'Tandai Belum Terjawab' : 'Tandai Terjawab',
+              child: IconButton(
+                onPressed: () =>
+                    questionViewModel.toggleSolved(questionId),
+                icon: Icon(
+                  question.isSolved
+                      ? Icons.check_circle_rounded
+                      : Icons.check_circle_outline_rounded,
+                  color: question.isSolved
+                      ? Colors.greenAccent.shade400
+                      : Colors.white70,
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -287,9 +312,19 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
                     ),
                   )
                 else
-                  ...question.replies.map(
+                  ...([...question.replies]..sort((a, b) {
+                    if (a.isBest && !b.isBest) return -1;
+                    if (!a.isBest && b.isBest) return 1;
+                    return b.votes.compareTo(a.votes);
+                  })).map(
                     (reply) => _ReplyCard(
                       reply: reply,
+                      isQuestionOwner: isQuestionOwner,
+                      isReplyAuthor: reply.author == currentUserDisplayName,
+                      currentUserId: currentUserId,
+                      currentUserDisplayName: currentUserDisplayName,
+                      currentUserAvatarUrl: authViewModel.user?.avatarUrl ?? '',
+                      questionId: questionId,
                       onBest: () => questionViewModel.toggleBestReply(
                         questionId,
                         reply.id,
@@ -392,7 +427,9 @@ class _AnswerQuestionScreenState extends State<AnswerQuestionScreen> {
                             )
                           : IconButton.filled(
                               onPressed: () => _postReply(
-                                  questionViewModel, currentUserDisplayName),
+                                  questionViewModel,
+                                  currentUserDisplayName,
+                                  authViewModel.user?.avatarUrl ?? ''),
                               style: IconButton.styleFrom(
                                 backgroundColor: AppTheme.primaryColor,
                               ),
@@ -458,15 +495,12 @@ class _AnswerQuestionPicker extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
-                    leading: CircleAvatar(
+                    leading: UserAvatar(
+                      url: question.authorAvatarUrl,
+                      fallback: question.avatar,
+                      radius: 20,
                       backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      child: Text(
-                        question.avatar,
-                        style: TextStyle(
-                          color: AppTheme.primaryDark,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      fallbackTextColor: AppTheme.primaryDark,
                     ),
                     title: Text(
                       question.title,
@@ -521,15 +555,12 @@ class _QuestionDetailCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                UserAvatar(
+                  url: question.authorAvatarUrl,
+                  fallback: question.avatar,
+                  radius: 20,
                   backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  child: Text(
-                    question.avatar,
-                    style: TextStyle(
-                      color: AppTheme.primaryDark,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  fallbackTextColor: AppTheme.primaryDark,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -541,7 +572,7 @@ class _QuestionDetailCard extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${question.time} • ${question.tag}',
+                        '${timeAgo(question.createdAtMs)} • ${question.tag}',
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 11,
@@ -602,8 +633,14 @@ class _QuestionDetailCard extends StatelessWidget {
   }
 }
 
-class _ReplyCard extends StatelessWidget {
+class _ReplyCard extends StatefulWidget {
   final Reply reply;
+  final bool isQuestionOwner;
+  final bool isReplyAuthor;
+  final String currentUserId;
+  final String currentUserDisplayName;
+  final String currentUserAvatarUrl;
+  final String questionId;
   final VoidCallback onBest;
   final VoidCallback onUpvote;
   final VoidCallback onEdit;
@@ -611,6 +648,12 @@ class _ReplyCard extends StatelessWidget {
 
   const _ReplyCard({
     required this.reply,
+    required this.isQuestionOwner,
+    required this.isReplyAuthor,
+    required this.currentUserId,
+    required this.currentUserDisplayName,
+    required this.currentUserAvatarUrl,
+    required this.questionId,
     required this.onBest,
     required this.onUpvote,
     required this.onEdit,
@@ -618,16 +661,75 @@ class _ReplyCard extends StatelessWidget {
   });
 
   @override
+  State<_ReplyCard> createState() => _ReplyCardState();
+}
+
+class _ReplyCardState extends State<_ReplyCard> {
+  bool _showComments = false;
+  final _commentController = TextEditingController();
+  XFile? _selectedCommentImage;
+  bool _isPostingComment = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickCommentImage() async {
+    final picker = ImagePicker();
+    final image =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (image == null || !mounted) return;
+    setState(() => _selectedCommentImage = image);
+  }
+
+  Future<void> _postComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty && _selectedCommentImage == null) return;
+    setState(() => _isPostingComment = true);
+
+    String? imageUrl;
+    if (_selectedCommentImage != null) {
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      imageUrl = await SupabaseStorageService.instance
+          .uploadCommentImage(tempId, _selectedCommentImage!);
+    }
+
+    if (!mounted) return;
+
+    final comment = Comment(
+      author: widget.currentUserDisplayName.isNotEmpty
+          ? widget.currentUserDisplayName
+          : 'Pengguna',
+      authorAvatarUrl: widget.currentUserAvatarUrl,
+      content: text.isEmpty ? '📷 Lampiran' : text,
+      imageUrl: imageUrl,
+    );
+
+    await context
+        .read<QuestionViewModel>()
+        .addComment(widget.questionId, widget.reply.id, comment);
+
+    if (!mounted) return;
+    _commentController.clear();
+    setState(() {
+      _selectedCommentImage = null;
+      _isPostingComment = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: reply.isBest
+        side: widget.reply.isBest
             ? BorderSide(color: Colors.green.shade500, width: 1.5)
             : BorderSide.none,
       ),
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: reply.isBest ? 3 : 1,
+      elevation: widget.reply.isBest ? 3 : 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -635,74 +737,77 @@ class _ReplyCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                UserAvatar(
+                  url: widget.reply.authorAvatarUrl.isNotEmpty
+                      ? widget.reply.authorAvatarUrl
+                      : null,
+                  fallback: widget.reply.author,
                   radius: 15,
-                  backgroundColor: reply.isBest
+                  backgroundColor: widget.reply.isBest
                       ? Colors.green.shade100
                       : Colors.grey.shade200,
-                  child: Text(
-                    reply.author.isNotEmpty
-                        ? reply.author[0].toUpperCase()
-                        : 'M',
-                    style: TextStyle(
-                      color: reply.isBest
-                          ? Colors.green.shade900
-                          : Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
+                  fallbackTextColor: widget.reply.isBest
+                      ? Colors.green.shade900
+                      : Colors.black87,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    reply.author,
+                    widget.reply.author,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'best') onBest();
-                    if (value == 'edit') onEdit();
-                    if (value == 'delete') onDelete();
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'best',
-                      child: ListTile(
-                        dense: true,
-                        leading: Icon(
-                          reply.isBest ? Icons.star : Icons.star_border,
+                if (widget.isQuestionOwner || widget.isReplyAuthor)
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'best') widget.onBest();
+                      if (value == 'edit') widget.onEdit();
+                      if (value == 'delete') widget.onDelete();
+                    },
+                    itemBuilder: (context) => [
+                      if (widget.isQuestionOwner)
+                        PopupMenuItem(
+                          value: 'best',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(
+                              widget.reply.isBest
+                                  ? Icons.star
+                                  : Icons.star_border,
+                            ),
+                            title: Text(
+                              widget.reply.isBest
+                                  ? 'Batalkan terbaik'
+                                  : 'Tandai terbaik',
+                            ),
+                          ),
                         ),
-                        title: Text(
-                          reply.isBest ? 'Batalkan terbaik' : 'Tandai terbaik',
+                      if (widget.isReplyAuthor)
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('Edit jawaban'),
+                          ),
                         ),
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: ListTile(
-                        dense: true,
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('Edit jawaban'),
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: ListTile(
-                        dense: true,
-                        leading: Icon(Icons.delete_outline, color: Colors.red),
-                        title: Text('Tarik jawaban'),
-                      ),
-                    ),
-                  ],
-                ),
+                      if (widget.isReplyAuthor)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.delete_outline, color: Colors.red),
+                            title: Text('Tarik jawaban'),
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             ),
-            if (reply.isBest) ...[
+            if (widget.reply.isBest) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -725,23 +830,29 @@ class _ReplyCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             Text(
-              reply.content,
+              widget.reply.content,
               style: TextStyle(color: Colors.grey.shade800, height: 1.45),
             ),
-            if ((reply.imageUrl ?? '').isNotEmpty) ...[
+            if ((widget.reply.imageUrl ?? '').isNotEmpty) ...[
               const SizedBox(height: 10),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => FullScreenImageViewer(imageUrl: reply.imageUrl!, heroTag: 'r_${reply.id}'),
-                    ));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenImageViewer(
+                          imageUrl: widget.reply.imageUrl!,
+                          heroTag: 'r_${widget.reply.id}',
+                        ),
+                      ),
+                    );
                   },
                   child: Hero(
-                    tag: 'r_${reply.id}',
+                    tag: 'r_${widget.reply.id}',
                     child: Image.network(
-                      reply.imageUrl!,
+                      widget.reply.imageUrl!,
                       width: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
@@ -760,7 +871,7 @@ class _ReplyCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             InkWell(
-              onTap: onUpvote,
+              onTap: widget.onUpvote,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
@@ -774,15 +885,222 @@ class _ReplyCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${reply.votes} Upvotes',
+                      '${widget.reply.votes} Upvotes',
                       style: const TextStyle(fontSize: 11),
                     ),
                   ],
                 ),
               ),
             ),
+            Divider(height: 20, thickness: 0.5, color: Colors.grey.shade200),
+            InkWell(
+              onTap: () => setState(() => _showComments = !_showComments),
+              child: Row(
+                children: [
+                  Icon(Icons.comment_outlined,
+                      size: 14, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.reply.comments.isEmpty
+                        ? 'Komentar'
+                        : '${widget.reply.comments.length} Komentar',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _showComments ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: Colors.grey.shade400,
+                  ),
+                ],
+              ),
+            ),
+            if (_showComments) ...[
+              const SizedBox(height: 8),
+              ...widget.reply.comments.map(
+                (comment) => _CommentTile(
+                  comment: comment,
+                  currentUserDisplayName: widget.currentUserDisplayName,
+                  onDelete: () => context
+                      .read<QuestionViewModel>()
+                      .deleteComment(
+                          widget.questionId, widget.reply.id, comment.id),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_selectedCommentImage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.image_outlined,
+                          size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _selectedCommentImage!.name,
+                          style:
+                              const TextStyle(fontSize: 11, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _selectedCommentImage = null),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              Row(
+                children: [
+                  UserAvatar(
+                    url: widget.currentUserAvatarUrl.isNotEmpty
+                        ? widget.currentUserAvatarUrl
+                        : null,
+                    fallback: widget.currentUserDisplayName,
+                    radius: 12,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(17),
+                      ),
+                      child: TextField(
+                        controller: _commentController,
+                        style: const TextStyle(fontSize: 12),
+                        decoration: InputDecoration(
+                          hintText: 'Tulis komentar...',
+                          hintStyle: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade400),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 0),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: _isPostingComment ? null : _pickCommentImage,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 18,
+                        color: _selectedCommentImage != null
+                            ? AppTheme.primaryColor
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _isPostingComment
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : InkWell(
+                          onTap: _postComment,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.send_rounded,
+                              size: 18,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CommentTile extends StatelessWidget {
+  final Comment comment;
+  final String currentUserDisplayName;
+  final VoidCallback onDelete;
+
+  const _CommentTile({
+    required this.comment,
+    required this.currentUserDisplayName,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAuthor = comment.author == currentUserDisplayName;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          UserAvatar(
+            url: comment.authorAvatarUrl.isNotEmpty
+                ? comment.authorAvatarUrl
+                : null,
+            fallback: comment.author,
+            radius: 12,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      comment.author,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      timeAgo(comment.createdAtMs),
+                      style:
+                          TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    ),
+                    const Spacer(),
+                    if (isAuthor)
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: Icon(Icons.close,
+                            size: 13, color: Colors.grey.shade400),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  comment.content,
+                  style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                ),
+                if ((comment.imageUrl ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      comment.imageUrl!,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, e, st) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

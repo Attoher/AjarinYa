@@ -8,20 +8,24 @@ class BarterRequest {
   String? groupId;
   String userId;
   String? userName; // displayName of the requestor
+  String? avatarUrl; // profile picture of the requestor
   String canTeach;
   String wantToLearn;
   String status; // "PENDING" atau "MATCHED"
   String? matchedWith;
+  String? matchedWithName;
 
   BarterRequest({
     this.requestId = '',
     this.groupId,
     this.userId = '',
     this.userName,
+    this.avatarUrl,
     this.canTeach = '',
     this.wantToLearn = '',
     this.status = 'PENDING',
     this.matchedWith,
+    this.matchedWithName,
   });
 
   /// Mengubah JSON Map dari Firestore menjadi objek BarterRequest secara aman.
@@ -37,10 +41,12 @@ class BarterRequest {
         groupId: json['groupId'] as String?,
         userId: json['userId'] as String? ?? '',
         userName: json['userName'] as String?,
+        avatarUrl: json['avatarUrl'] as String?,
         canTeach: json['canTeach'] as String? ?? '',
         wantToLearn: json['wantToLearn'] as String? ?? '',
         status: json['status'] as String? ?? 'PENDING',
         matchedWith: json['matchedWith'] as String?,
+        matchedWithName: json['matchedWithName'] as String?,
       );
     } catch (e, stackTrace) {
       debugPrint('========== CRITICAL_INTEGRITY_ALERT: $e ==========');
@@ -61,10 +67,12 @@ class BarterRequest {
       'groupId': groupId,
       'userId': userId,
       'userName': userName,
+      'avatarUrl': avatarUrl,
       'canTeach': canTeach,
       'wantToLearn': wantToLearn,
       'status': status,
       'matchedWith': matchedWith,
+      'matchedWithName': matchedWithName,
     };
   }
 }

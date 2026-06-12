@@ -6,6 +6,7 @@ import 'package:ajarin_ya/viewmodels/barter_view_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
+import 'package:ajarin_ya/widgets/user_avatar.dart';
 
 import 'package:ajarin_ya/views/private_chat_screen.dart';
 
@@ -113,6 +114,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                     groupId: activeGroupId,
                     userId: _currentUserId,
                     userName: currentUserName,
+                    avatarUrl: authVm.user?.avatarUrl,
                     canTeach: _canTeachController.text,
                     wantToLearn: _wantToLearnController.text,
                     status: existingRequest?.status ?? 'PENDING',
@@ -260,13 +262,13 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                   }
 
                   final myRequests = requests.where((r) => r.userId == _currentUserId).toList();
-                  final otherRequests = requests.where((r) => r.userId != _currentUserId).toList();
+                  final otherRequests = requests.where((r) => r.userId != _currentUserId && r.status == 'PENDING').toList();
 
                   return LayoutBuilder(
                     builder: (ctx, constraints) {
                       final isWide = constraints.maxWidth >= 600;
                       return ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                         children: [
                           if (myRequests.isNotEmpty) ...[
                             _sectionHeader('Request Saya', topPadding: 8),
@@ -378,7 +380,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -387,19 +389,16 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
+                    UserAvatar(
+                      url: req.avatarUrl,
+                      fallback: displayName,
                       radius: 14,
                       backgroundColor: isMine
                           ? AppTheme.primaryColor.withValues(alpha: 0.15)
                           : AppTheme.accentColor.withValues(alpha: 0.15),
-                      child: Text(
-                        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isMine ? AppTheme.primaryColor : AppTheme.accentColor,
-                        ),
-                      ),
+                      fallbackTextColor: isMine
+                          ? AppTheme.primaryColor
+                          : AppTheme.accentColor,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -429,7 +428,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -455,7 +454,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             if (isMatched)
               Column(
                 children: [
@@ -501,6 +500,24 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         final activeGroup = context.read<AuthViewModel>().user?.activeGroupId;
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Hapus Barter'),
+                            content: const Text('Yakin ingin menghapus request barter ini?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Batal'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
                         await vm.deleteBarterRequest(req.requestId);
                         if (activeGroup != null && activeGroup.isNotEmpty) {
                           vm.fetchBarterRequests(_currentUserId, activeGroup);
@@ -535,8 +552,10 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
                       onPressed: isMatching
                           ? null
                           : () async {
-                              final activeGroup = context.read<AuthViewModel>().user?.activeGroupId;
-                              await matchVm.applyBarter(req.requestId, _currentUserId);
+                              final authVm = context.read<AuthViewModel>();
+                              final activeGroup = authVm.user?.activeGroupId;
+                              final currentUserName = authVm.user?.displayName;
+                              await matchVm.applyBarter(req.requestId, _currentUserId, currentUserName: currentUserName);
                               if (activeGroup != null && activeGroup.isNotEmpty) {
                                 matchVm.fetchBarterRequests(_currentUserId, activeGroup);
                               }
@@ -590,7 +609,7 @@ class _BarterRequestScreenState extends State<BarterRequestScreen> {
   Widget _buildMatchedBadge(BarterRequest req) {
     final isOriginalPoster = req.userId == _currentUserId;
     final partnerName = isOriginalPoster
-        ? 'seseorang'
+        ? (req.matchedWithName ?? 'seseorang')
         : (req.userName ?? 'pengguna lain');
 
     return Container(

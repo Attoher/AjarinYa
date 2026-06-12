@@ -9,6 +9,9 @@ import 'package:ajarin_ya/services/supabase_storage_service.dart';
 class ChatViewModel extends ChangeNotifier {
   final ChatRepository _repository;
   StreamSubscription? _messagesSubscription;
+  String? _subscribedUserId;
+  Function(ChatMessage)? _onPartnerMessage;
+  bool _isInitialLoad = true;
 
   ChatViewModel({required ChatRepository repository}) : _repository = repository;
 
@@ -23,13 +26,35 @@ class ChatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void subscribeToMessages(String chatId) {
+  void subscribeToMessages(
+    String chatId, {
+    String? currentUserId,
+    Function(ChatMessage)? onPartnerMessage,
+  }) {
+    _subscribedUserId = currentUserId;
+    _onPartnerMessage = onPartnerMessage;
+    _isInitialLoad = true;
     _messagesSubscription?.cancel();
     _messagesState = const ResultStateLoading();
     notifyListeners();
 
     _messagesSubscription = _repository.streamMessages(chatId).listen(
       (state) {
+        if (!_isInitialLoad &&
+            state is ResultStateSuccess<List<ChatMessage>> &&
+            _messagesState is ResultStateSuccess<List<ChatMessage>>) {
+          final oldList =
+              (_messagesState as ResultStateSuccess<List<ChatMessage>>).data;
+          final newList = state.data;
+          if (newList.isNotEmpty &&
+              (oldList.isEmpty || newList.first.id != oldList.first.id)) {
+            final newest = newList.first;
+            if (newest.senderId != _subscribedUserId) {
+              _onPartnerMessage?.call(newest);
+            }
+          }
+        }
+        _isInitialLoad = false;
         _messagesState = state;
         notifyListeners();
       },
@@ -43,6 +68,7 @@ class ChatViewModel extends ChangeNotifier {
   void unsubscribeFromMessages() {
     _messagesSubscription?.cancel();
     _messagesSubscription = null;
+    _onPartnerMessage = null;
     _messagesState = const ResultStateIdle();
     notifyListeners();
   }
@@ -80,7 +106,6 @@ class ChatViewModel extends ChangeNotifier {
     _sendMessageState = const ResultStateLoading();
     notifyListeners();
 
-    // 1. Upload gambar ke Supabase
     final imageUrl = await SupabaseStorageService.instance.uploadChatImage(chatId, imageFile);
 
     if (imageUrl == null) {
@@ -89,7 +114,6 @@ class ChatViewModel extends ChangeNotifier {
       return;
     }
 
-    // 2. Simpan pesan ke Firestore
     final message = ChatMessage(
       id: '',
       senderId: senderId,

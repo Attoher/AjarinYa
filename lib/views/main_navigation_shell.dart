@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/views/dashboard_screen.dart';
@@ -59,9 +59,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
                     boxShadow: AppTheme.softShadow,
                   ),
                   child: Row(
@@ -132,7 +132,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withOpacity(0.12) : Colors.transparent,
+          color: isSelected ? primaryColor.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(

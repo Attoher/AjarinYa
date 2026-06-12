@@ -41,6 +41,10 @@ class SupabaseStorageService {
   Future<String?> uploadChatImage(String chatId, XFile file) =>
       _upload(SupabaseConfig.bucketChats, 'chat_$chatId', file);
 
+  /// Upload gambar komentar. Mengembalikan public URL atau null jika gagal.
+  Future<String?> uploadCommentImage(String commentId, XFile file) =>
+      _upload(SupabaseConfig.bucketComments, 'c_$commentId', file);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Core upload
   // ─────────────────────────────────────────────────────────────────────────

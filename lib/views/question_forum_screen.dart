@@ -1,9 +1,11 @@
 import 'package:ajarin_ya/models/question.dart';
 import 'package:ajarin_ya/models/result_state.dart';
+import 'package:ajarin_ya/utils/time_utils.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/views/answer_question_screen.dart';
 import 'package:ajarin_ya/services/supabase_storage_service.dart';
+import 'package:ajarin_ya/widgets/user_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
@@ -373,10 +375,20 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
 
     if (!context.mounted || result == null) return;
 
-    final groupId = context.read<AuthViewModel>().user?.activeGroupId;
-    final question = (groupId != null && groupId.isNotEmpty)
+    final authVm = context.read<AuthViewModel>();
+    final groupId = authVm.user?.activeGroupId;
+    final currentUid = authVm.user?.uid ?? '';
+
+    var question = (groupId != null && groupId.isNotEmpty)
         ? result.question.copyWith(groupId: groupId)
         : result.question;
+
+    if (existingQuestion == null) {
+      question = question.copyWith(
+        ownerId: question.ownerId.isEmpty ? currentUid : question.ownerId,
+        authorAvatarUrl: authVm.user?.avatarUrl ?? '',
+      );
+    }
 
     if (existingQuestion == null) {
       await vm.createQuestion(question);
@@ -435,10 +447,10 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
   @override
   Widget build(BuildContext context) {
     final questionViewModel = context.read<QuestionViewModel>();
-    final currentUserDisplayName = context.select<AuthViewModel, String>(
-      (authViewModel) => authViewModel.user?.displayName ?? 'Pengguna',
-    );
-    final activeGroupId = context.watch<AuthViewModel>().user?.activeGroupId;
+    final authVm = context.watch<AuthViewModel>();
+    final currentUserDisplayName = authVm.user?.displayName ?? 'Pengguna';
+    final currentUserId = authVm.user?.uid ?? '';
+    final activeGroupId = authVm.user?.activeGroupId;
 
     if (activeGroupId == null || activeGroupId.isEmpty) {
       return Scaffold(
@@ -486,7 +498,7 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
         children: [
 
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: TextField(
               controller: _searchController,
               onChanged: (value) =>
@@ -554,12 +566,14 @@ class _QuestionForumScreenState extends State<QuestionForumScreen> {
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                   itemCount: questions.length,
                   itemBuilder: (ctx, idx) {
                     final question = questions[idx];
                     return _QuestionCard(
                       question: question,
+                      currentUserId: currentUserId,
+                      currentUserDisplayName: currentUserDisplayName,
                       onOpen: () {
                         Navigator.push(
                           context,
@@ -632,7 +646,6 @@ class _QuestionFormPage extends StatefulWidget {
 class _QuestionFormPageState extends State<_QuestionFormPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _imageUrlController = TextEditingController();
   final _imagePicker = ImagePicker();
 
   late String _selectedTag;
@@ -648,14 +661,13 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
     _selectedTag = question?.tag ?? widget.tags.first;
     _titleController.text = question?.title ?? '';
     _contentController.text = question?.content ?? '';
-    _imageUrlController.text = question?.imageUrl ?? '';
+    if (question?.imageUrl != null) _selectedImage = null;
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -672,7 +684,7 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
   Future<void> _submit() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
-    var imageUrl = _imageUrlController.text.trim();
+    var imageUrl = widget.existingQuestion?.imageUrl ?? '';
 
     if (title.isEmpty || content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -813,21 +825,6 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _imageUrlController,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: 'URL gambar soal (opsional)',
-                hintText: 'Firebase Storage download URL',
-                prefixIcon: const Icon(Icons.image_outlined),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -926,6 +923,8 @@ class _QuestionFormPageState extends State<_QuestionFormPage> {
 
 class _QuestionCard extends StatelessWidget {
   final Question question;
+  final String currentUserId;
+  final String currentUserDisplayName;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -933,6 +932,8 @@ class _QuestionCard extends StatelessWidget {
 
   const _QuestionCard({
     required this.question,
+    required this.currentUserId,
+    required this.currentUserDisplayName,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
@@ -955,16 +956,12 @@ class _QuestionCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  UserAvatar(
+                    url: question.authorAvatarUrl,
+                    fallback: question.avatar,
                     radius: 17,
-                    child: Text(
-                      question.avatar,
-                      style: TextStyle(
-                        color: AppTheme.primaryDark,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    fallbackTextColor: AppTheme.primaryDark,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -979,7 +976,7 @@ class _QuestionCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${question.time} • ${question.tag}',
+                          '${timeAgo(question.createdAtMs)} • ${question.tag}',
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 10,
@@ -1005,33 +1002,35 @@ class _QuestionCard extends StatelessWidget {
                       backgroundColor: Colors.green.shade50,
                       side: BorderSide.none,
                     ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') onEdit();
-                      if (value == 'delete') onDelete();
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: ListTile(
-                          dense: true,
-                          leading: Icon(Icons.edit_outlined),
-                          title: Text('Edit soal'),
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: ListTile(
-                          dense: true,
-                          leading: Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
+                  if (question.ownerId == currentUserId ||
+                      (question.ownerId.isEmpty && question.author == currentUserDisplayName))
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') onEdit();
+                        if (value == 'delete') onDelete();
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('Edit soal'),
                           ),
-                          title: Text('Hapus soal'),
                         ),
-                      ),
-                    ],
-                  ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                            ),
+                            title: Text('Hapus soal'),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
