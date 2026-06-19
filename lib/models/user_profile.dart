@@ -6,6 +6,7 @@ class UserProfile {
   final List<String> groupIds;
   final Map<String, String> groupNames; // mapping of groupId -> groupName
   final String? activeGroupId;
+  final String? fcmToken; // token perangkat untuk push notification (FCM)
 
   UserProfile({
     required this.uid,
@@ -15,6 +16,7 @@ class UserProfile {
     this.groupIds = const [],
     this.groupNames = const {},
     this.activeGroupId,
+    this.fcmToken,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class UserProfile {
       groupIds: parsedGroupIds,
       groupNames: parsedGroupNames,
       activeGroupId: json['activeGroupId'] as String? ?? (parsedGroupIds.isNotEmpty ? parsedGroupIds.first : null),
+      fcmToken: json['fcmToken'] as String?,
     );
   }
 
@@ -56,6 +59,7 @@ class UserProfile {
       'groupIds': groupIds,
       'groupNames': groupNames,
       'activeGroupId': activeGroupId,
+      'fcmToken': fcmToken,
     };
   }
 }

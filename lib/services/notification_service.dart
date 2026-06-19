@@ -1,17 +1,49 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:convert';
 import 'dart:developer' as developer;
+
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:ajarin_ya/firebase_options.dart';
+import 'package:ajarin_ya/views/barter_request_screen.dart';
+
+/// Handler pesan FCM saat aplikasi berada di background atau sudah ditutup
+/// (terminated). Wajib berupa top-level function (bukan method di dalam class)
+/// agar bisa dijalankan oleh Flutter di isolate terpisah.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Isolate background terpisah dari isolate utama, sehingga Firebase
+  // perlu diinisialisasi ulang sebelum dipakai.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  developer.log('Pesan FCM diterima saat background: ${message.messageId}', name: 'FCM');
+}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  /// Inisialisasi Firebase Cloud Messaging
+  /// Key navigator global supaya notifikasi yang di-tap bisa mengarahkan
+  /// pengguna ke layar yang relevan tanpa butuh BuildContext lokal.
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  static const String _channelId = 'ajarinya_channel';
+  static const String _channelName = 'Notifikasi AjarinYa';
+  static const String _channelDescription =
+      'Notifikasi pesan chat dan tawaran trade skill di AjarinYa';
+
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  /// Inisialisasi Firebase Cloud Messaging beserta tampilan notifikasi
+  /// sistem (di luar aplikasi) untuk pesan chat dan tawaran trade skill.
   Future<void> initFirebaseMessaging() async {
     try {
-      FirebaseMessaging messaging = FirebaseMessaging.instance;
-      NotificationSettings settings = await messaging.requestPermission(
+      await _initLocalNotifications();
+
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
         alert: true,
         announcement: false,
         badge: true,
@@ -20,24 +52,128 @@ class NotificationService {
         provisional: false,
         sound: true,
       );
-      
-      developer.log('User granted permission: ${settings.authorizationStatus}', name: 'FCM');
 
-      // Listen to foreground messages
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        developer.log('Got a message whilst in the foreground!', name: 'FCM');
-        developer.log('Message data: ${message.data}', name: 'FCM');
+      developer.log('Status izin notifikasi: ${settings.authorizationStatus}', name: 'FCM');
 
-        if (message.notification != null) {
-          developer.log('Message also contained a notification: ${message.notification}', name: 'FCM');
-          // We would show the in-app banner here if context was available globally,
-          // but usually this is handled at the app root level.
-        }
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+      // Saat aplikasi sedang dibuka (foreground), FCM tidak otomatis
+      // menampilkan notifikasi sistem, sehingga kita tampilkan secara manual.
+      FirebaseMessaging.onMessage.listen(_showLocalNotification);
+
+      // Saat notifikasi sistem (dikirim FCM) di-tap ketika aplikasi
+      // berjalan di background.
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        _handleNotificationTap(message.data);
       });
+
+      // Saat aplikasi dibuka dari kondisi tertutup (terminated) lewat tap
+      // notifikasi.
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleNotificationTap(initialMessage.data);
+        });
+      }
     } catch (e) {
       developer.log('FCM init failed: $e', name: 'FCM');
     }
   }
+
+  Future<void> _initLocalNotifications() async {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload == null || payload.isEmpty) return;
+        try {
+          final data = jsonDecode(payload) as Map<String, dynamic>;
+          _handleNotificationTap(data);
+        } catch (e) {
+          developer.log('Gagal membaca payload notifikasi: $e', name: 'FCM');
+        }
+      },
+    );
+
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: _channelDescription,
+      importance: Importance.high,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+
+  /// Menampilkan pesan FCM yang masuk ketika aplikasi sedang foreground
+  /// sebagai notifikasi sistem (muncul di status bar / tray notifikasi),
+  /// sehingga perilakunya konsisten dengan saat aplikasi di background.
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    final notification = message.notification;
+    final type = message.data['type'] as String?;
+    final title = notification?.title ?? _defaultTitleForType(type);
+    final body = notification?.body ?? (message.data['body'] as String? ?? '');
+
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const details = NotificationDetails(android: androidDetails);
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+      payload: jsonEncode(message.data),
+    );
+  }
+
+  String _defaultTitleForType(String? type) {
+    switch (type) {
+      case 'chat':
+        return 'Pesan Baru';
+      case 'barter_offer':
+        return 'Tawaran Skill Baru';
+      case 'barter_matched':
+        return 'Tawaran Diterima';
+      default:
+        return 'AjarinYa';
+    }
+  }
+
+  /// Mengarahkan pengguna ke layar yang relevan berdasarkan tipe notifikasi
+  /// yang di-tap (pesan chat atau tawaran trade skill).
+  void _handleNotificationTap(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    if (type == 'chat' || type == 'barter_offer' || type == 'barter_matched') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const BarterRequestScreen()),
+      );
+    }
+  }
+
+  /// Mengambil token unik perangkat untuk dikirimi push notification.
+  Future<String?> getDeviceToken() async {
+    try {
+      return await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      developer.log('Gagal mengambil FCM token: $e', name: 'FCM');
+      return null;
+    }
+  }
+
+  /// Stream token baru setiap kali FCM merotasi token perangkat.
+  Stream<String> get onTokenRefresh => FirebaseMessaging.instance.onTokenRefresh;
 
   /// Menampilkan simulasi push notifikasi melayang (in-app banner)
   /// dengan animasi slide-down dan fade-in.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ajarin_ya/models/user_profile.dart';
 import 'package:ajarin_ya/repositories/auth_repository.dart';
+import 'package:ajarin_ya/services/notification_service.dart';
 import 'dart:math' as dart_math;
 
 class AuthViewModel extends ChangeNotifier {
@@ -14,9 +15,30 @@ class AuthViewModel extends ChangeNotifier {
     _authRepository.onAuthStateChanged.listen((UserProfile? user) {
       _user = user;
       notifyListeners();
+      if (user != null) {
+        _syncFcmToken();
+      }
     });
     // Inisialisasi awal
     _user = _authRepository.currentUser;
+
+    // Pastikan token push notification tetap up to date setiap kali
+    // FCM merotasi token perangkat (misal setelah reinstall aplikasi).
+    NotificationService().onTokenRefresh.listen((token) {
+      if (isAuthenticated) {
+        _authRepository.updateFcmToken(token);
+      }
+    });
+  }
+
+  /// Mendaftarkan token perangkat saat ini ke profil pengguna yang sedang
+  /// login, agar Cloud Functions bisa mengirim push notification untuk
+  /// pesan chat maupun tawaran trade skill.
+  Future<void> _syncFcmToken() async {
+    final token = await NotificationService().getDeviceToken();
+    if (token != null) {
+      await _authRepository.updateFcmToken(token);
+    }
   }
 
   UserProfile? get user => _user;
@@ -121,6 +143,11 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<void> updateAvatarUrl(String url) async {
     await _authRepository.updateAvatarUrl(url);
+  }
+
+  Future<void> updateFcmToken(String token) async {
+    if (!isAuthenticated) return;
+    await _authRepository.updateFcmToken(token);
   }
 
   Future<bool> leaveGroup(String groupId) async {

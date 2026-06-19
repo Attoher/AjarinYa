@@ -19,6 +19,7 @@ abstract class AuthRepository {
   Future<void> leaveGroup(String groupId);
   Future<void> switchActiveGroup(String groupId);
   Future<void> updateAvatarUrl(String url);
+  Future<void> updateFcmToken(String token);
   Future<void> signOut();
   UserProfile? get currentUser;
 }
@@ -429,6 +430,36 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       } catch (e) {
         developer.log('Failed to update avatarUrl: $e', name: 'AUTH_DIAGNOSTICS');
+      }
+    }
+    _currentCachedUser = updatedProfile;
+    _authStateController.add(updatedProfile);
+  }
+
+  @override
+  Future<void> updateFcmToken(String token) async {
+    if (_currentCachedUser == null || token.isEmpty) return;
+    if (_currentCachedUser!.fcmToken == token) return;
+
+    final updatedProfile = UserProfile(
+      uid: _currentCachedUser!.uid,
+      email: _currentCachedUser!.email,
+      displayName: _currentCachedUser!.displayName,
+      avatarUrl: _currentCachedUser!.avatarUrl,
+      groupIds: _currentCachedUser!.groupIds,
+      groupNames: _currentCachedUser!.groupNames,
+      activeGroupId: _currentCachedUser!.activeGroupId,
+      fcmToken: token,
+    );
+    final db = _db;
+    if (db != null) {
+      try {
+        await db.collection('users').doc(updatedProfile.uid).set(
+          {'fcmToken': token},
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        developer.log('Failed to update fcmToken: $e', name: 'AUTH_DIAGNOSTICS');
       }
     }
     _currentCachedUser = updatedProfile;

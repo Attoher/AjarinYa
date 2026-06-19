@@ -65,6 +65,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'AjarinYa!',
         debugShowCheckedModeBanner: false,
+        navigatorKey: NotificationService.navigatorKey,
         theme: AppTheme.lightTheme,
         home: const MainNavigationShell(),
       ),
