@@ -58,16 +58,20 @@ member column with the actual contributor for grading purposes.
 
 | Team Member | Feature Module | End-to-End Stack (Flutter -> Cloud) |
 |---|---|---|
-| _(fill in)_ | Question Forum | `QuestionForumScreen` / `AnswerQuestionScreen` -> `QuestionViewModel` -> `QuestionRepository` -> Cloud Firestore `questions` collection |
-| _(fill in)_ | Skill Barter | `BarterRequestScreen` -> `BarterViewModel` -> `BarterRepository` -> Cloud Firestore `barter_requests` collection (atomic transaction) |
-| _(fill in)_ | Private Chat | `PrivateChatScreen` -> `ChatViewModel` -> `ChatRepository` -> Cloud Firestore `barter_requests/{id}/messages` sub-collection |
-| _(fill in)_ | Study Spot Explorer | `StudySpotScreen` -> `StudySpotViewModel` -> `StudySpotRepository` -> Cloud Firestore `study_spots` collection |
-| _(fill in)_ | Notes Collection | `NotesCollectionScreen` -> `NotesViewModel` -> `NotesRepository` -> Cloud Firestore `notes` collection |
-| _(fill in)_ | Push Notification | `NotificationService` -> Firebase Cloud Messaging -> `functions/index.js` -> Cloud Firestore triggers |
+| Rafif Thariq (5025231213) | Question Forum | `QuestionForumScreen` / `AnswerQuestionScreen` -> `QuestionViewModel` -> `QuestionRepository` -> Cloud Firestore `questions` collection |
+| Ath Thahir Muhammad Isa Rahmatullah (5025231181) | Skill Barter | `BarterRequestScreen` -> `BarterViewModel` -> `BarterRepository` -> Cloud Firestore `barter_requests` collection (atomic transaction) |
+| Ath Thahir Muhammad Isa Rahmatullah (5025231181) | Private Chat & Forum Reply/Comment | `PrivateChatScreen` -> `ChatViewModel` -> `ChatRepository` -> Cloud Firestore `barter_requests/{id}/messages`; `_ReplyCard` / `_CommentTile` -> `QuestionViewModel.addReply` / `addComment` -> Cloud Firestore `questions` |
+| Ath Thahir Muhammad Isa Rahmatullah (5025231181) | Study Spot Explorer | `StudySpotScreen` -> `StudySpotViewModel` -> `StudySpotRepository` -> Cloud Firestore `study_spots` collection |
+| Dzuhrillah Hendraines (5025221107) | Notes Collection | `NotesCollectionScreen` -> `NotesViewModel` -> `NotesRepository` -> Cloud Firestore `notes` collection |
+| Dzuhrillah Hendraines (5025221107) | Pomodoro Timer | `PomodoroScreen` -> local state management (focus session, background music, online study room simulation) |
+| Ath Thahir Muhammad Isa Rahmatullah (5025231181) | Push Notification | `NotificationService` -> Firebase Cloud Messaging -> `functions/index.js` -> Cloud Firestore triggers |
 
 Note: User Authentication (`AuthRepository` / `AuthViewModel`) is fully
 implemented but intentionally excluded from the list above, per the rule
 that authentication does not count toward the individual feature quota.
+Group management (create/join group, active group switching) is also
+developed by Ath Thahir and serves as the shared context for all
+group-scoped features (forum, barter, study spot).
 
 **Project Theme (SDGs).** AjarinYa! is built around **SDG 4 - Quality
 Education**. The app lowers barriers to peer learning among university
