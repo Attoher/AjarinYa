@@ -622,7 +622,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                           final personalFolders = savableFolders
                               .where((f) => f != 'Umum')
                               .toList();
-                          if (personalFolders.isEmpty) {
+                          if (personalFolders.length <= 1) {
                             return const SizedBox.shrink();
                           }
                           final currentVal = personalFolders.contains(_noteFolder)
