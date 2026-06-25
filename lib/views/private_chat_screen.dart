@@ -134,6 +134,110 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
     );
   }
 
+  void _showMessageOptions(BuildContext ctx, ChatMessage message) {
+    showModalBottomSheet(
+      context: ctx,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (message.text != null && message.text!.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+                title: const Text('Edit Pesan'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showEditDialog(message);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('Hapus Pesan', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(message);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(ChatMessage message) {
+    final editCtrl = TextEditingController(text: message.text ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Pesan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: TextField(
+          controller: editCtrl,
+          maxLines: 4,
+          minLines: 1,
+          autofocus: true,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              final newText = editCtrl.text.trim();
+              if (newText.isEmpty) return;
+              Navigator.pop(ctx);
+              context.read<ChatViewModel>().editMessage(
+                widget.barterRequest.requestId,
+                message.id,
+                newText,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(ChatMessage message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Pesan?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text('Pesan ini akan dihapus secara permanen.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ChatViewModel>().deleteMessage(
+                widget.barterRequest.requestId,
+                message.id,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserId = context.watch<AuthViewModel>().user?.uid ?? '';
@@ -198,83 +302,103 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
     final mm = message.timestamp.minute.toString().padLeft(2, '0');
     final timeStr = '$hh:$mm';
 
-    final bubble = Container(
-      margin: EdgeInsets.only(top: 4, bottom: 4, left: isMe ? 40 : 8, right: isMe ? 8 : 40),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.75,
-      ),
-      decoration: BoxDecoration(
-        color: isMe ? AppTheme.primaryColor : Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(16),
-          topRight: const Radius.circular(16),
-          bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-          bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+    final bubble = GestureDetector(
+      onLongPress: isMe ? () => _showMessageOptions(context, message) : null,
+      child: Container(
+        margin: EdgeInsets.only(top: 4, bottom: 4, left: isMe ? 40 : 8, right: isMe ? 8 : 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
+        decoration: BoxDecoration(
+          color: isMe ? AppTheme.primaryColor : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+            bottomRight: isMe ? Radius.zero : const Radius.circular(16),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (!isMe)
-            Text(
-              message.senderName,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: Colors.blue.shade800,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
             ),
-          if (!isMe && message.senderName.isNotEmpty) const SizedBox(height: 4),
-          
-          if (message.imageUrl != null && message.imageUrl!.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => FullScreenImageViewer(imageUrl: message.imageUrl!, heroTag: message.id.isNotEmpty ? message.id : message.imageUrl!)),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Hero(
-                  tag: message.id.isNotEmpty ? message.id : message.imageUrl!,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      message.imageUrl!,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (!isMe)
+              Text(
+                message.senderName,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.blue.shade800,
+                ),
+              ),
+            if (!isMe && message.senderName.isNotEmpty) const SizedBox(height: 4),
+
+            if (message.imageUrl != null && message.imageUrl!.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => FullScreenImageViewer(imageUrl: message.imageUrl!, heroTag: message.id.isNotEmpty ? message.id : message.imageUrl!)),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Hero(
+                    tag: message.id.isNotEmpty ? message.id : message.imageUrl!,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        message.imageUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50),
+                      ),
                     ),
                   ),
                 ),
               ),
+
+            if (message.text != null && message.text!.isNotEmpty)
+              Text(
+                message.text!,
+                style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 14),
+              ),
+
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message.isEdited)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      'diubah',
+                      style: TextStyle(
+                        color: isMe ? Colors.white54 : Colors.black38,
+                        fontSize: 9,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                Text(
+                  timeStr,
+                  style: TextStyle(
+                    color: isMe ? Colors.white70 : Colors.black45,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
-            
-          if (message.text != null && message.text!.isNotEmpty)
-            Text(
-              message.text!,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 14),
-            ),
-            
-          const SizedBox(height: 4),
-          Text(
-            timeStr,
-            style: TextStyle(
-              color: isMe ? Colors.white70 : Colors.black45,
-              fontSize: 10,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -293,8 +417,8 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
             CircleAvatar(
               radius: 14,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.2),
-              backgroundImage: message.senderAvatarUrl != null && message.senderAvatarUrl!.isNotEmpty 
-                  ? NetworkImage(message.senderAvatarUrl!) 
+              backgroundImage: message.senderAvatarUrl != null && message.senderAvatarUrl!.isNotEmpty
+                  ? NetworkImage(message.senderAvatarUrl!)
                   : null,
               child: message.senderAvatarUrl == null || message.senderAvatarUrl!.isEmpty
                   ? Text(

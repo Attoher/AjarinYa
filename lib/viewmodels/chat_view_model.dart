@@ -127,4 +127,12 @@ class ChatViewModel extends ChangeNotifier {
     _sendMessageState = await _repository.sendMessage(chatId, message);
     notifyListeners();
   }
+
+  Future<void> editMessage(String chatId, String messageId, String newText) async {
+    await _repository.updateMessage(chatId, messageId, newText.trim());
+  }
+
+  Future<void> deleteMessage(String chatId, String messageId) async {
+    await _repository.deleteMessage(chatId, messageId);
+  }
 }

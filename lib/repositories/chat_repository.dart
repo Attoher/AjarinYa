@@ -6,6 +6,8 @@ import 'package:ajarin_ya/models/result_state.dart';
 abstract class ChatRepository {
   Stream<ResultState<List<ChatMessage>>> streamMessages(String chatId);
   Future<ResultState<void>> sendMessage(String chatId, ChatMessage message);
+  Future<ResultState<void>> updateMessage(String chatId, String messageId, String newText);
+  Future<ResultState<void>> deleteMessage(String chatId, String messageId);
 }
 
 class ChatRepositoryImpl implements ChatRepository {
@@ -43,15 +45,38 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<ResultState<void>> sendMessage(String chatId, ChatMessage message) async {
     try {
       final collection = _messagesCollection(chatId);
-      if (collection == null) {
-        throw Exception('Firestore tidak tersedia');
-      }
-
+      if (collection == null) throw Exception('Firestore tidak tersedia');
       await collection.add(message.toJson());
       return const ResultStateSuccess(null);
     } catch (e) {
       developer.log('ERROR sendMessage: $e', name: 'CHAT_REPO');
       return ResultStateError(e, 'Gagal mengirim pesan: $e');
+    }
+  }
+
+  @override
+  Future<ResultState<void>> updateMessage(String chatId, String messageId, String newText) async {
+    try {
+      final collection = _messagesCollection(chatId);
+      if (collection == null) throw Exception('Firestore tidak tersedia');
+      await collection.doc(messageId).update({'text': newText, 'isEdited': true});
+      return const ResultStateSuccess(null);
+    } catch (e) {
+      developer.log('ERROR updateMessage: $e', name: 'CHAT_REPO');
+      return ResultStateError(e, 'Gagal mengedit pesan: $e');
+    }
+  }
+
+  @override
+  Future<ResultState<void>> deleteMessage(String chatId, String messageId) async {
+    try {
+      final collection = _messagesCollection(chatId);
+      if (collection == null) throw Exception('Firestore tidak tersedia');
+      await collection.doc(messageId).delete();
+      return const ResultStateSuccess(null);
+    } catch (e) {
+      developer.log('ERROR deleteMessage: $e', name: 'CHAT_REPO');
+      return ResultStateError(e, 'Gagal menghapus pesan: $e');
     }
   }
 }

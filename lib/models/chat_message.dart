@@ -8,6 +8,7 @@ class ChatMessage {
   final String? text;
   final String? imageUrl;
   final DateTime timestamp;
+  final bool isEdited;
 
   ChatMessage({
     required this.id,
@@ -17,6 +18,7 @@ class ChatMessage {
     this.text,
     this.imageUrl,
     required this.timestamp,
+    this.isEdited = false,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, String documentId) {
@@ -28,6 +30,7 @@ class ChatMessage {
       text: json['text'] as String?,
       imageUrl: json['imageUrl'] as String?,
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isEdited: json['isEdited'] as bool? ?? false,
     );
   }
 
@@ -39,6 +42,29 @@ class ChatMessage {
       'text': text,
       'imageUrl': imageUrl,
       'timestamp': Timestamp.fromDate(timestamp),
+      'isEdited': isEdited,
     };
+  }
+
+  ChatMessage copyWith({
+    String? id,
+    String? senderId,
+    String? senderName,
+    String? senderAvatarUrl,
+    String? text,
+    String? imageUrl,
+    DateTime? timestamp,
+    bool? isEdited,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
+      senderName: senderName ?? this.senderName,
+      senderAvatarUrl: senderAvatarUrl ?? this.senderAvatarUrl,
+      text: text ?? this.text,
+      imageUrl: imageUrl ?? this.imageUrl,
+      timestamp: timestamp ?? this.timestamp,
+      isEdited: isEdited ?? this.isEdited,
+    );
   }
 }
