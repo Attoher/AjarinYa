@@ -43,8 +43,124 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
     super.dispose();
   }
 
+  Future<ImageSource?> _pickImageSource(BuildContext ctx) {
+    return showDialog<ImageSource>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Pilih Sumber Gambar', style: TextStyle(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galeri Foto'),
+              onTap: () => Navigator.of(dialogCtx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.of(dialogCtx).pop(ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePickerRow({
+    required XFile? selectedImage,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: onPick,
+          icon: const Icon(Icons.image_outlined, size: 16),
+          label: const Text('Lampirkan Gambar', style: TextStyle(fontSize: 12)),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+        if (selectedImage != null) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              selectedImage.name,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: onClear,
+            child: const Icon(Icons.close, size: 16, color: Colors.grey),
+          ),
+        ],
+      ],
+    );
+  }
+
   void _showAddNoteBottomSheet(NotesViewModel notesVm) {
+    _titleController.clear();
+    _contentController.clear();
     _selectedNoteImage = null;
+    _newNoteFolder = 'Umum';
+    _showNoteBottomSheet(
+      notesVm: notesVm,
+      title: 'Buat Catatan Baru',
+      buttonLabel: 'Simpan Catatan',
+      onSave: (title, content, folder, imageUrl, colorValue) {
+        final newNote = Note(
+          title: title,
+          folder: folder,
+          content: content.isEmpty ? ' ' : content,
+          date: '${DateTime.now().day} ${_monthName(DateTime.now().month)} ${DateTime.now().year}',
+          isBookmarked: false,
+          colorValue: colorValue,
+          imageUrl: imageUrl,
+        );
+        notesVm.createNote(newNote);
+      },
+      successMessage: 'Catatan berhasil ditambahkan!',
+    );
+  }
+
+  void _showEditNoteBottomSheet(NotesViewModel notesVm, Note note) {
+    _titleController.text = note.title;
+    _contentController.text = note.content.trim();
+    _selectedNoteImage = null;
+    _newNoteFolder = note.folder;
+    _showNoteBottomSheet(
+      notesVm: notesVm,
+      title: 'Edit Catatan',
+      buttonLabel: 'Perbarui Catatan',
+      existingImageUrl: note.imageUrl,
+      onSave: (title, content, folder, imageUrl, _) {
+        final updatedNote = Note(
+          id: note.id,
+          title: title,
+          folder: folder,
+          content: content.isEmpty ? ' ' : content,
+          date: note.date,
+          isBookmarked: note.isBookmarked,
+          colorValue: note.colorValue,
+          ownerId: note.ownerId,
+          imageUrl: imageUrl ?? note.imageUrl,
+        );
+        notesVm.updateNote(updatedNote);
+      },
+      successMessage: 'Catatan berhasil diperbarui!',
+    );
+  }
+
+  void _showNoteBottomSheet({
+    required NotesViewModel notesVm,
+    required String title,
+    required String buttonLabel,
+    String? existingImageUrl,
+    required void Function(String title, String content, String folder, String? imageUrl, int colorValue) onSave,
+    required String successMessage,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -69,14 +185,8 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Buat Catatan Baru',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(sheetCtx),
-                          icon: const Icon(Icons.close),
-                        ),
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        IconButton(onPressed: () => Navigator.pop(sheetCtx), icon: const Icon(Icons.close)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -98,9 +208,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                   .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
                                   .toList(),
                               onChanged: (val) {
-                                if (val != null) {
-                                  setSheetState(() => _newNoteFolder = val);
-                                }
+                                if (val != null) setSheetState(() => _newNoteFolder = val);
                               },
                             ),
                           ),
@@ -125,66 +233,23 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Image picker row
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final source = await showDialog<ImageSource>(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('Pilih Sumber Gambar', style: TextStyle(fontSize: 16)),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.photo_library),
-                                        title: const Text('Galeri Foto'),
-                                        onTap: () => Navigator.of(context).pop(ImageSource.gallery),
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.photo_camera),
-                                        title: const Text('Kamera'),
-                                        onTap: () => Navigator.of(context).pop(ImageSource.camera),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                            
-                            if (source == null) return;
-
-                            final image = await _imagePicker.pickImage(
-                              source: source,
-                              imageQuality: 80,
-                            );
-                            if (image != null) {
-                              setSheetState(() => _selectedNoteImage = image);
-                            }
-                          },
-                          icon: const Icon(Icons.image_outlined, size: 16),
-                          label: const Text('Lampirkan Gambar', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
+                    if (existingImageUrl != null && _selectedNoteImage == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Gambar saat ini terpasang. Pilih gambar baru untuk mengganti.',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                         ),
-                        if (_selectedNoteImage != null) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _selectedNoteImage!.name,
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => setSheetState(() => _selectedNoteImage = null),
-                            child: const Icon(Icons.close, size: 16, color: Colors.grey),
-                          ),
-                        ],
-                      ],
+                      ),
+                    _buildImagePickerRow(
+                      selectedImage: _selectedNoteImage,
+                      onPick: () async {
+                        final source = await _pickImageSource(context);
+                        if (source == null) return;
+                        final image = await _imagePicker.pickImage(source: source, imageQuality: 80);
+                        if (image != null) setSheetState(() => _selectedNoteImage = image);
+                      },
+                      onClear: () => setSheetState(() => _selectedNoteImage = null),
                     ),
                     const SizedBox(height: 20),
                     SizedBox(
@@ -203,27 +268,16 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                       .uploadNoteImage(tempId, _selectedNoteImage!);
                                 }
 
-                                final colorOptions = [
-                                  0xFFFFF8E1,
-                                  0xFFE3F2FD,
-                                  0xFFE8F5E9,
-                                  0xFFE0F2F1,
-                                ];
-                                final selectedColor = (colorOptions..shuffle()).first;
+                                const colorOptions = [0xFFFFF8E1, 0xFFE3F2FD, 0xFFE8F5E9, 0xFFE0F2F1];
+                                final colorValue = (List<int>.from(colorOptions)..shuffle()).first;
 
-                                final newNote = Note(
-                                  title: _titleController.text.trim(),
-                                  folder: _newNoteFolder,
-                                  content: _contentController.text.trim().isEmpty
-                                      ? ' '
-                                      : _contentController.text.trim(),
-                                  date: '${DateTime.now().day} ${_monthName(DateTime.now().month)} ${DateTime.now().year}',
-                                  isBookmarked: false,
-                                  colorValue: selectedColor,
-                                  imageUrl: imageUrl,
+                                onSave(
+                                  _titleController.text.trim(),
+                                  _contentController.text.trim(),
+                                  _newNoteFolder,
+                                  imageUrl,
+                                  colorValue,
                                 );
-
-                                notesVm.createNote(newNote);
 
                                 _titleController.clear();
                                 _contentController.clear();
@@ -234,7 +288,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                 if (context.mounted) Navigator.pop(sheetCtx);
                                 if (mounted) {
                                   ScaffoldMessenger.of(this.context).showSnackBar(
-                                    const SnackBar(content: Text('Catatan berhasil ditambahkan!')),
+                                    SnackBar(content: Text(successMessage)),
                                   );
                                 }
                               },
@@ -246,11 +300,10 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                         ),
                         child: _isSavingNote
                             ? const SizedBox(
-                                height: 18,
-                                width: 18,
+                                height: 18, width: 18,
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                               )
-                            : const Text('Simpan Catatan', style: TextStyle(fontWeight: FontWeight.bold)),
+                            : Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -488,14 +541,24 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                                       note.date,
                                       style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
                                     ),
-                                    GestureDetector(
-                                      onTap: () {
-                                        notesVm.deleteNote(note.id);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Catatan dihapus.')),
-                                        );
-                                      },
-                                      child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 14),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () => _showEditNoteBottomSheet(notesVm, note),
+                                          child: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 14),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        GestureDetector(
+                                          onTap: () {
+                                            notesVm.deleteNote(note.id);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Catatan dihapus.')),
+                                            );
+                                          },
+                                          child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 14),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 )

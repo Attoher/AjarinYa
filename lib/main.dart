@@ -12,6 +12,7 @@ import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
 import 'package:ajarin_ya/viewmodels/question_view_model.dart';
 import 'package:ajarin_ya/viewmodels/study_spot_view_model.dart';
 import 'package:ajarin_ya/viewmodels/chat_view_model.dart';
+import 'package:ajarin_ya/viewmodels/pomodoro_view_model.dart';
 import 'package:ajarin_ya/repositories/chat_repository.dart';
 import 'package:ajarin_ya/views/main_navigation_shell.dart';
 import 'package:ajarin_ya/services/notification_service.dart';
@@ -55,6 +56,7 @@ class MyApp extends StatelessWidget {
           create: (_) => StudySpotViewModel(),
         ),
         ChangeNotifierProvider<NotesViewModel>(create: (_) => NotesViewModel()),
+        ChangeNotifierProvider<PomodoroViewModel>(create: (_) => PomodoroViewModel()),
         ChangeNotifierProvider<QuestionViewModel>(
           create: (_) => QuestionViewModel(),
         ),
