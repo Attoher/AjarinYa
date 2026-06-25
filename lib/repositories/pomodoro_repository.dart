@@ -117,12 +117,12 @@ class PomodoroRepositoryImpl implements PomodoroRepository {
       if (col == null) throw Exception('Firestore tidak tersedia');
       final snap = await col
           .where('ownerId', isEqualTo: ownerId)
-          .orderBy('completedAt', descending: true)
           .limit(50)
           .get();
       final sessions = snap.docs
           .map((d) => PomodoroSession.fromJson(d.data(), d.id))
-          .toList();
+          .toList()
+        ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
       yield ResultStateSuccess(sessions);
     } catch (e) {
       developer.log('ERROR getSessions: $e', name: 'POMODORO_DB');

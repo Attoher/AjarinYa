@@ -22,6 +22,20 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   bool _isRunning = false;
   String _currentMode = 'Focus'; // Focus, Short Break, Long Break
   int _sessionsCompleted = 0;
+
+  // Preset aktif — null berarti pakai durasi default
+  PomodoroPreset? _activePreset;
+
+  int _durationMinutesForMode(String mode) {
+    if (_activePreset != null) {
+      if (mode == 'Focus') return _activePreset!.focusMinutes;
+      if (mode == 'Short Break') return _activePreset!.shortBreakMinutes;
+      return _activePreset!.longBreakMinutes;
+    }
+    if (mode == 'Focus') return 25;
+    if (mode == 'Short Break') return 5;
+    return 15;
+  }
   
   // Local state for interactive ambient sounds
   String _selectedAmbient = 'None';
@@ -142,19 +156,13 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   void _setModeDuration(String mode) {
     _currentMode = mode;
     _seconds = 0;
-    if (mode == 'Focus') {
-      _minutes = 25;
-    } else if (mode == 'Short Break') {
-      _minutes = 5;
-    } else if (mode == 'Long Break') {
-      _minutes = 15;
-    }
+    _minutes = _durationMinutesForMode(mode);
   }
 
   void _showSessionFinishedDialog() {
-    // Auto-save Focus session to Firestore
+    // Auto-save Focus session to Firestore with actual duration
     if (_currentMode == 'Focus') {
-      context.read<PomodoroViewModel>().saveSession('Focus', 25);
+      context.read<PomodoroViewModel>().saveSession('Focus', _durationMinutesForMode('Focus'));
     }
     showDialog(
       context: context,
@@ -200,15 +208,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     _timer?.cancel();
     _timer = null;
     setState(() {
+      _activePreset = preset;
       _isRunning = false;
       _seconds = 0;
-      if (_currentMode == 'Focus') {
-        _minutes = preset.focusMinutes;
-      } else if (_currentMode == 'Short Break') {
-        _minutes = preset.shortBreakMinutes;
-      } else {
-        _minutes = preset.longBreakMinutes;
-      }
+      _minutes = _durationMinutesForMode(_currentMode);
     });
   }
 
@@ -328,8 +331,8 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   @override
   Widget build(BuildContext context) {
     final pomodoroVm = context.watch<PomodoroViewModel>();
-    final double progress = (_minutes * 60 + _seconds) /
-        (_currentMode == 'Focus' ? 25 * 60 : (_currentMode == 'Short Break' ? 5 * 60 : 15 * 60));
+    final int totalSecs = _durationMinutesForMode(_currentMode) * 60;
+    final double progress = totalSecs == 0 ? 0 : (_minutes * 60 + _seconds) / totalSecs;
     final screenWidth = MediaQuery.of(context).size.width;
     final timerSize = screenWidth < 360 ? 180.0 : (screenWidth < 420 ? 220.0 : 240.0);
 
