@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/note.dart';
-import 'package:ajarin_ya/models/pomodoro_preset.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
 import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
-import 'package:ajarin_ya/viewmodels/pomodoro_view_model.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -25,20 +23,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   String _currentMode = 'Focus'; // Focus, Short Break, Long Break
   int _sessionsCompleted = 0;
 
-  // Preset aktif — null berarti pakai durasi default
-  PomodoroPreset? _activePreset;
-
-  int _durationMinutesForMode(String mode) {
-    if (_activePreset != null) {
-      if (mode == 'Focus') return _activePreset!.focusMinutes;
-      if (mode == 'Short Break') return _activePreset!.shortBreakMinutes;
-      return _activePreset!.longBreakMinutes;
-    }
-    if (mode == 'Focus') return 25;
-    if (mode == 'Short Break') return 5;
-    return 15;
-  }
-  
   // Local state for interactive ambient sounds
   String _selectedAmbient = 'None';
   final List<String> _ambientSounds = ['None', 'Lofi Cafe', 'Hujan Deras', 'Hutan Rileks'];
@@ -63,10 +47,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchGroupMembers();
-      // Reload karena ViewModel dibuat sebelum user login
-      final vm = context.read<PomodoroViewModel>();
-      vm.loadPresets();
-      vm.loadSessions();
     });
   }
 
@@ -167,14 +147,16 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   void _setModeDuration(String mode) {
     _currentMode = mode;
     _seconds = 0;
-    _minutes = _durationMinutesForMode(mode);
+    if (mode == 'Focus') {
+      _minutes = 25;
+    } else if (mode == 'Short Break') {
+      _minutes = 5;
+    } else {
+      _minutes = 15;
+    }
   }
 
   void _showSessionFinishedDialog() {
-    // Auto-save Focus session to Firestore with actual duration
-    if (_currentMode == 'Focus') {
-      context.read<PomodoroViewModel>().saveSession('Focus', _durationMinutesForMode('Focus'));
-    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -215,123 +197,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     );
   }
 
-  void _applyPreset(PomodoroPreset preset) {
-    _timer?.cancel();
-    _timer = null;
-    setState(() {
-      _activePreset = preset;
-      _isRunning = false;
-      _seconds = 0;
-      _minutes = _durationMinutesForMode(_currentMode);
-    });
-  }
-
-  void _showPresetDialog(BuildContext context, PomodoroViewModel pomodoroVm, {PomodoroPreset? existing}) {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final focusCtrl = TextEditingController(text: '${existing?.focusMinutes ?? 25}');
-    final shortCtrl = TextEditingController(text: '${existing?.shortBreakMinutes ?? 5}');
-    final longCtrl  = TextEditingController(text: '${existing?.longBreakMinutes ?? 15}');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          existing == null ? 'Buat Preset Baru' : 'Edit Preset',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Nama Preset',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: focusCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Fokus (mnt)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: shortCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Break Pendek',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: longCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Break Panjang',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              final focus = int.tryParse(focusCtrl.text) ?? 25;
-              final short = int.tryParse(shortCtrl.text) ?? 5;
-              final long  = int.tryParse(longCtrl.text) ?? 15;
-              if (existing == null) {
-                pomodoroVm.createPreset(PomodoroPreset(
-                  name: name,
-                  focusMinutes: focus,
-                  shortBreakMinutes: short,
-                  longBreakMinutes: long,
-                ));
-              } else {
-                pomodoroVm.updatePreset(existing.copyWith(
-                  name: name,
-                  focusMinutes: focus,
-                  shortBreakMinutes: short,
-                  longBreakMinutes: long,
-                ));
-              }
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(existing == null ? 'Simpan' : 'Perbarui'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _timer?.cancel();
@@ -342,8 +207,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pomodoroVm = context.watch<PomodoroViewModel>();
-    final int totalSecs = _durationMinutesForMode(_currentMode) * 60;
+    final int totalSecs = (_currentMode == 'Focus' ? 25 : _currentMode == 'Short Break' ? 5 : 15) * 60;
     final double progress = totalSecs == 0 ? 0 : (_minutes * 60 + _seconds) / totalSecs;
     final screenWidth = MediaQuery.of(context).size.width;
     final timerSize = screenWidth < 360 ? 180.0 : (screenWidth < 420 ? 220.0 : 240.0);
@@ -475,13 +339,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   // Skip Session Mock Button
                   IconButton(
                     onPressed: () {
-                      // Jika skip saat Focus, simpan sesi terlebih dahulu
-                      if (_currentMode == 'Focus') {
-                        context.read<PomodoroViewModel>().saveSession(
-                              'Focus',
-                              _durationMinutesForMode('Focus'),
-                            );
-                      }
                       setState(() {
                         _sessionsCompleted++;
                         _setModeDuration(_currentMode == 'Focus' ? 'Short Break' : 'Focus');
@@ -547,122 +404,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         );
                       }).toList(),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Preset Sesi Block
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppTheme.softShadow,
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.tune, color: AppTheme.primaryColor, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Preset Sesi',
-                              style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: AppTheme.primaryColor, size: 22),
-                          onPressed: () => _showPresetDialog(context, pomodoroVm),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (pomodoroVm.presets.isEmpty)
-                      Text(
-                        'Belum ada preset. Ketuk + untuk membuat preset durasi timer kustom.',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: pomodoroVm.presets.map((preset) {
-                          return GestureDetector(
-                            onTap: () => _applyPreset(preset),
-                            onLongPress: () {
-                              showModalBottomSheet(
-                                context: context,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                builder: (_) => SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.edit_outlined),
-                                        title: const Text('Edit Preset'),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          _showPresetDialog(context, pomodoroVm, existing: preset);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                        title: const Text('Hapus Preset', style: TextStyle(color: Colors.redAccent)),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          pomodoroVm.deletePreset(preset.id);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    preset.name,
-                                    style: const TextStyle(
-                                      color: AppTheme.primaryColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${preset.focusMinutes}/${preset.shortBreakMinutes}/${preset.longBreakMinutes} mnt',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 9),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
                   ],
                 ),
               ),
@@ -1032,108 +773,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   ),
                 );
               }),
-              const SizedBox(height: 16),
-
-              // Riwayat Sesi
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppTheme.softShadow,
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Riwayat Sesi',
-                          style: TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (pomodoroVm.sessions.isEmpty)
-                      Text(
-                        'Belum ada sesi selesai. Selesaikan sesi fokus untuk menyimpan riwayat.',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                      )
-                    else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: pomodoroVm.sessions.length > 10 ? 10 : pomodoroVm.sessions.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, idx) {
-                          final s = pomodoroVm.sessions[idx];
-                          final d = s.completedAt;
-                          final dateStr = '${d.day.toString().padLeft(2,'0')}/'
-                              '${d.month.toString().padLeft(2,'0')}/'
-                              '${d.year}  '
-                              '${d.hour.toString().padLeft(2,'0')}:'
-                              '${d.minute.toString().padLeft(2,'0')}';
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    s.mode,
-                                    style: const TextStyle(
-                                      color: AppTheme.primaryColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${s.durationMinutes} menit',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        dateStr,
-                                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                                  onPressed: () => pomodoroVm.deleteSession(s.id),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 120),
             ],
           ),
