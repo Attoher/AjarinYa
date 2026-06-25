@@ -704,6 +704,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                 final filtered = _noteViewFilter == 'Diri Sendiri'
                     ? allNotes.where((n) => n.folder != 'Umum').toList()
                     : allNotes.where((n) => n.folder == 'Umum').toList();
+                final displayName = context.read<AuthViewModel>().user?.displayName ?? '';
 
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -801,6 +802,13 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                       style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                  if (_noteViewFilter == 'Umum' && displayName.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'oleh $displayName',
+                                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
                                     ),
                                   ],
                                 ],
