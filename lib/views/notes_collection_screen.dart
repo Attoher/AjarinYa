@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/note.dart';
 import 'package:ajarin_ya/models/result_state.dart';
-import 'package:ajarin_ya/services/supabase_storage_service.dart';
 import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
 import 'package:ajarin_ya/widgets/full_screen_image_viewer.dart';
+import 'package:ajarin_ya/views/note_editor_screen.dart';
 
 class NotesCollectionScreen extends StatefulWidget {
   const NotesCollectionScreen({super.key});
@@ -18,383 +17,50 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
   String _selectedFolder = 'Semua Catatan';
   String _searchQuery = '';
 
-  final _titleController = TextEditingController();
-  final _contentController = TextEditingController();
-  final _folderNameController = TextEditingController();
-  String _newNoteFolder = 'Umum';
-  final _imagePicker = ImagePicker();
-  XFile? _selectedNoteImage;
-  bool _isSavingNote = false;
-
   IconData _folderIcon(String folder) {
     switch (folder) {
       case 'Kalkulus II': return Icons.architecture;
       case 'Struktur Data': return Icons.code;
       case 'UI/UX Design': return Icons.palette;
       case 'Umum': return Icons.menu_book;
-      default: return Icons.folder_outlined;
+      default: return Icons.folder;
     }
   }
 
-  void _showAddFolderDialog(NotesViewModel vm) {
-    _folderNameController.clear();
+  void _showAddFolderDialog(NotesViewModel notesVm) {
+    final folderController = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Buat Folder Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      builder: (context) => AlertDialog(
+        title: const Text('Tambah Folder Baru'),
         content: TextField(
-          controller: _folderNameController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: 'Nama folder...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          ),
+          controller: folderController,
+          decoration: const InputDecoration(hintText: 'Nama folder...'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () async {
-              final added = await vm.addFolder(_folderNameController.text);
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (!added && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Folder sudah ada atau nama kosong.')),
-                );
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+            onPressed: () {
+              if (folderController.text.trim().isNotEmpty) {
+                notesVm.addFolder(folderController.text.trim());
+                Navigator.pop(context);
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade700,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Buat'),
+            child: const Text('Tambah'),
           ),
         ],
       ),
     );
-  }
-
-  void _confirmDeleteFolder(NotesViewModel vm, String folder) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Hapus folder "$folder"?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text('Catatan di folder ini akan dipindahkan ke folder Umum.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              vm.deleteFolder(folder);
-              if (_selectedFolder == folder) setState(() => _selectedFolder = 'Semua Catatan');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    _folderNameController.dispose();
-    super.dispose();
-  }
-
-  Future<ImageSource?> _pickImageSource(BuildContext ctx) {
-    return showDialog<ImageSource>(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Pilih Sumber Gambar', style: TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Galeri Foto'),
-              onTap: () => Navigator.of(dialogCtx).pop(ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Kamera'),
-              onTap: () => Navigator.of(dialogCtx).pop(ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImagePickerRow({
-    required XFile? selectedImage,
-    required VoidCallback onPick,
-    required VoidCallback onClear,
-  }) {
-    return Row(
-      children: [
-        OutlinedButton.icon(
-          onPressed: onPick,
-          icon: const Icon(Icons.image_outlined, size: 16),
-          label: const Text('Lampirkan Gambar', style: TextStyle(fontSize: 12)),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-        if (selectedImage != null) ...[
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              selectedImage.name,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          GestureDetector(
-            onTap: onClear,
-            child: const Icon(Icons.close, size: 16, color: Colors.grey),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _showAddNoteBottomSheet(NotesViewModel notesVm) {
-    _titleController.clear();
-    _contentController.clear();
-    _selectedNoteImage = null;
-    _newNoteFolder = 'Umum';
-    _showNoteBottomSheet(
-      notesVm: notesVm,
-      title: 'Buat Catatan Baru',
-      buttonLabel: 'Simpan Catatan',
-      onSave: (title, content, folder, imageUrl, colorValue) {
-        final newNote = Note(
-          title: title,
-          folder: folder,
-          content: content.isEmpty ? ' ' : content,
-          date: '${DateTime.now().day} ${_monthName(DateTime.now().month)} ${DateTime.now().year}',
-          isBookmarked: false,
-          colorValue: colorValue,
-          imageUrl: imageUrl,
-        );
-        notesVm.createNote(newNote);
-      },
-      successMessage: 'Catatan berhasil ditambahkan!',
-    );
-  }
-
-  void _showEditNoteBottomSheet(NotesViewModel notesVm, Note note) {
-    _titleController.text = note.title;
-    _contentController.text = note.content.trim();
-    _selectedNoteImage = null;
-    _newNoteFolder = note.folder;
-    _showNoteBottomSheet(
-      notesVm: notesVm,
-      title: 'Edit Catatan',
-      buttonLabel: 'Perbarui Catatan',
-      existingImageUrl: note.imageUrl,
-      onSave: (title, content, folder, imageUrl, _) {
-        final updatedNote = Note(
-          id: note.id,
-          title: title,
-          folder: folder,
-          content: content.isEmpty ? ' ' : content,
-          date: note.date,
-          isBookmarked: note.isBookmarked,
-          colorValue: note.colorValue,
-          ownerId: note.ownerId,
-          imageUrl: imageUrl ?? note.imageUrl,
-        );
-        notesVm.updateNote(updatedNote);
-      },
-      successMessage: 'Catatan berhasil diperbarui!',
-    );
-  }
-
-  void _showNoteBottomSheet({
-    required NotesViewModel notesVm,
-    required String title,
-    required String buttonLabel,
-    String? existingImageUrl,
-    required void Function(String title, String content, String folder, String? imageUrl, int colorValue) onSave,
-    required String successMessage,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetCtx) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
-                top: 24,
-                left: 24,
-                right: 24,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        IconButton(onPressed: () => Navigator.pop(sheetCtx), icon: const Icon(Icons.close)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Text('Kategori:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _newNoteFolder,
-                              items: notesVm.folders
-                                  .where((f) => f != 'Semua Catatan')
-                                  .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) setSheetState(() => _newNoteFolder = val);
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: 'Judul Catatan',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _contentController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        labelText: 'Tulis Rangkuman Belajar...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (existingImageUrl != null && _selectedNoteImage == null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'Gambar saat ini terpasang. Pilih gambar baru untuk mengganti.',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                        ),
-                      ),
-                    _buildImagePickerRow(
-                      selectedImage: _selectedNoteImage,
-                      onPick: () async {
-                        final source = await _pickImageSource(context);
-                        if (source == null) return;
-                        final image = await _imagePicker.pickImage(source: source, imageQuality: 80);
-                        if (image != null) setSheetState(() => _selectedNoteImage = image);
-                      },
-                      onClear: () => setSheetState(() => _selectedNoteImage = null),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSavingNote
-                            ? null
-                            : () async {
-                                if (_titleController.text.trim().isEmpty) return;
-                                setSheetState(() => _isSavingNote = true);
-
-                                String? imageUrl;
-                                if (_selectedNoteImage != null) {
-                                  final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-                                  imageUrl = await SupabaseStorageService.instance
-                                      .uploadNoteImage(tempId, _selectedNoteImage!);
-                                }
-
-                                const colorOptions = [0xFFFFF8E1, 0xFFE3F2FD, 0xFFE8F5E9, 0xFFE0F2F1];
-                                final colorValue = (List<int>.from(colorOptions)..shuffle()).first;
-
-                                onSave(
-                                  _titleController.text.trim(),
-                                  _contentController.text.trim(),
-                                  _newNoteFolder,
-                                  imageUrl,
-                                  colorValue,
-                                );
-
-                                _titleController.clear();
-                                _contentController.clear();
-                                setSheetState(() {
-                                  _selectedNoteImage = null;
-                                  _isSavingNote = false;
-                                });
-                                if (context.mounted) Navigator.pop(sheetCtx);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(this.context).showSnackBar(
-                                    SnackBar(content: Text(successMessage)),
-                                  );
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade700,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: _isSavingNote
-                            ? const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                              )
-                            : Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _monthName(int month) {
-    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    return names[month - 1];
   }
 
   @override
   Widget build(BuildContext context) {
     final notesVm = Provider.of<NotesViewModel>(context);
 
-    // Filter notes based on folder & search query
+    final foldersList = notesVm.folders.isEmpty
+        ? ['Semua Catatan', 'Kalkulus II', 'Struktur Data', 'UI/UX Design', 'Umum']
+        : notesVm.folders;
+
     final filteredNotes = notesVm.notes.where((note) {
       final matchesFolder = _selectedFolder == 'Semua Catatan' || note.folder == _selectedFolder;
       final matchesSearch = note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -409,21 +75,21 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
         backgroundColor: Colors.teal.shade700,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            onPressed: () => _showAddFolderDialog(notesVm),
+          )
+        ],
       ),
       body: Column(
         children: [
-
-          // Search & Filter Section
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 TextField(
-                  onChanged: (val) {
-                    setState(() {
-                      _searchQuery = val;
-                    });
-                  },
+                  onChanged: (val) => setState(() => _searchQuery = val),
                   decoration: InputDecoration(
                     hintText: 'Cari catatan atau rangkuman...',
                     prefixIcon: const Icon(Icons.search),
@@ -441,228 +107,269 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
-                // Horizontal Folder Toggles
                 SizedBox(
                   height: 38,
-                  child: ListView(
+                  child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    children: [
-                      ...notesVm.folders.map((folder) {
-                        final isSelected = _selectedFolder == folder;
-                        final isDeletable = !NotesViewModel.defaultFolders.contains(folder);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: GestureDetector(
-                            onLongPress: isDeletable
-                                ? () => _confirmDeleteFolder(notesVm, folder)
-                                : null,
-                            child: ChoiceChip(
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (folder != 'Semua Catatan') ...[
-                                    Icon(_folderIcon(folder), size: 14, color: isSelected ? Colors.white : Colors.black54),
-                                    const SizedBox(width: 4),
+                    itemCount: foldersList.length,
+                    itemBuilder: (ctx, idx) {
+                      final folder = foldersList[idx];
+                      final isSelected = _selectedFolder == folder;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: GestureDetector(
+                          onLongPress: () {
+                            if (folder != 'Semua Catatan' && folder != 'Umum') {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Hapus Folder'),
+                                  content: Text('Apakah kamu yakin ingin menghapus folder "$folder"?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+                                    TextButton(
+                                      onPressed: () {
+                                        notesVm.deleteFolder(folder);
+                                        if (_selectedFolder == folder) {
+                                          setState(() => _selectedFolder = 'Semua Catatan');
+                                        }
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                                    ),
                                   ],
-                                  Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                                ),
+                              );
+                            }
+                          },
+                          child: ChoiceChip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (folder != 'Semua Catatan') ...[
+                                  Icon(_folderIcon(folder), size: 14, color: isSelected ? Colors.white : Colors.black54),
+                                  const SizedBox(width: 4)
                                 ],
-                              ),
-                              selected: isSelected,
-                              onSelected: (_) => setState(() => _selectedFolder = folder),
-                              backgroundColor: Colors.white,
-                              selectedColor: Colors.teal.shade700,
-                              side: BorderSide(color: isSelected ? Colors.teal.shade700 : Colors.grey.shade300),
+                                Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                              ],
                             ),
-                          ),
-                        );
-                      }),
-                      // Tombol tambah folder
-                      GestureDetector(
-                        onTap: () => _showAddFolderDialog(notesVm),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.teal.shade200),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add, size: 14, color: Colors.teal.shade700),
-                              const SizedBox(width: 4),
-                              Text('Folder', style: TextStyle(fontSize: 11, color: Colors.teal.shade700)),
-                            ],
+                            selected: isSelected,
+                            onSelected: (selected) => setState(() => _selectedFolder = folder),
+                            backgroundColor: Colors.white,
+                            selectedColor: Colors.teal.shade700,
+                            side: BorderSide(color: isSelected ? Colors.teal.shade700 : Colors.grey.shade300),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
-
-          // Notes List
           Expanded(
             child: notesVm.state is ResultStateLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.teal))
                 : filteredNotes.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.notes_rounded, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Tidak ada catatan ditemukan.',
-                              style: TextStyle(color: Colors.grey.shade600),
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notes_rounded, size: 64, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text('Tidak ada catatan ditemukan.', style: TextStyle(color: Colors.grey.shade600)),
+                ],
+              ),
+            )
+                : LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                  return GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.85,
+                    ),
+                    itemCount: filteredNotes.length,
+                    itemBuilder: (ctx, idx) {
+                      final note = filteredNotes[idx];
+
+                      return GestureDetector(
+                        onTap: () async {
+                          // 1. KUNCI PERBAIKAN: Ambil ScaffoldMessenger sebelum Navigator dijalankan
+                          final messenger = ScaffoldMessenger.of(context);
+
+                          final isUpdated = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NoteEditorScreen(note: note),
                             ),
-                          ],
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
-                          return GridView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.85,
-                            ),
-                        itemCount: filteredNotes.length,
-                        itemBuilder: (ctx, idx) {
-                          final note = filteredNotes[idx];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Color(note.colorValue),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.01),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
+                          );
+
+                          // 2. KUNCI PERBAIKAN: Gunakan addPostFrameCallback agar dijalankan di frame setelah refresh selesai
+                          if (isUpdated == true) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              messenger.removeCurrentSnackBar();
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Catatan berhasil diperbarui!'),
+                                  backgroundColor: Colors.teal,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              );
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Color(note.colorValue),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      note.folder,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: EdgeInsets.zero,
+                                    icon: Icon(
+                                      note.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                      color: note.isBookmarked ? Colors.orange : Colors.grey.shade600,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => notesVm.toggleBookmark(note),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                note.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.2),
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.6),
+                                    Text(
+                                      note.content,
+                                      maxLines: (note.imageUrl ?? '').isNotEmpty ? 2 : 4,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 11, height: 1.3),
+                                    ),
+                                    if ((note.imageUrl ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        note.folder,
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: EdgeInsets.zero,
-                                      icon: Icon(
-                                        note.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                        color: note.isBookmarked ? Colors.orange : Colors.grey.shade600,
-                                        size: 18,
-                                      ),
-                                      onPressed: () {
-                                        notesVm.toggleBookmark(note);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  note.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.2),
-                                ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        note.content,
-                                        maxLines: (note.imageUrl ?? '').isNotEmpty ? 2 : 4,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 11, height: 1.3),
-                                      ),
-                                      if ((note.imageUrl ?? '').isNotEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(context, MaterialPageRoute(
-                                                builder: (_) => FullScreenImageViewer(imageUrl: note.imageUrl!, heroTag: 'n_${note.id}'),
-                                              ));
-                                            },
-                                            child: Hero(
-                                              tag: 'n_${note.id}',
-                                              child: Image.network(
-                                                note.imageUrl!,
-                                                height: 60,
-                                                width: double.infinity,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, e, s) => const SizedBox.shrink(),
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => FullScreenImageViewer(
+                                                  imageUrl: note.imageUrl!,
+                                                  heroTag: 'n_${note.id}',
+                                                ),
                                               ),
+                                            );
+                                          },
+                                          child: Hero(
+                                            tag: 'n_${note.id}',
+                                            child: Image.network(
+                                              note.imageUrl!,
+                                              height: 60,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, e, s) => const SizedBox.shrink(),
                                             ),
                                           ),
                                         ),
-                                      ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(note.date, style: TextStyle(color: Colors.grey.shade500, fontSize: 9)),
+                                  Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () async {
+                                          // KUNCI PERBAIKAN DI AREA TOMBOL PENSIL
+                                          final messenger = ScaffoldMessenger.of(context);
+
+                                          final isUpdated = await Navigator.push<bool>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => NoteEditorScreen(note: note),
+                                            ),
+                                          );
+
+                                          if (isUpdated == true) {
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              messenger.removeCurrentSnackBar();
+                                              messenger.showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Catatan berhasil diperbarui!'),
+                                                  backgroundColor: Colors.teal,
+                                                ),
+                                              );
+                                            });
+                                          }
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.only(right: 12),
+                                          child: Icon(Icons.edit_outlined, color: Colors.blue, size: 14),
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final messenger = ScaffoldMessenger.of(context);
+                                          final success = await notesVm.deleteNote(note.id);
+
+                                          if (!mounted) return;
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(success ? 'Catatan dihapus.' : 'Gagal menghapus catatan.'),
+                                            ),
+                                          );
+                                        },
+                                        child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 14),
+                                      ),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      note.date,
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        GestureDetector(
-                                          onTap: () => _showEditNoteBottomSheet(notesVm, note),
-                                          child: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 14),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        GestureDetector(
-                                          onTap: () {
-                                            notesVm.deleteNote(note.id);
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Catatan dihapus.')),
-                                            );
-                                          },
-                                          child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 14),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                )
-                              ],
-                            ),
-                          );
-                        },
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       );
-                    }),
+                    },
+                  );
+                }),
           ),
         ],
       ),
@@ -670,7 +377,37 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
         padding: const EdgeInsets.only(bottom: 90.0),
         child: FloatingActionButton.extended(
           heroTag: 'notes_fab',
-          onPressed: () => _showAddNoteBottomSheet(notesVm),
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+
+            final emptyNote = Note(
+                id: '',
+                title: '',
+                content: '',
+                date: '',
+                folder: 'Umum',
+                colorValue: Colors.white.value
+            );
+
+            final isSaved = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NoteEditorScreen(note: emptyNote),
+              ),
+            );
+
+            if (isSaved == true) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                messenger.removeCurrentSnackBar();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Catatan berhasil ditambahkan!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              });
+            }
+          },
           backgroundColor: Colors.teal.shade700,
           foregroundColor: Colors.white,
           icon: const Icon(Icons.create),
