@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:ajarin_ya/models/note.dart';
 import 'package:ajarin_ya/models/pomodoro_preset.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
 import 'package:ajarin_ya/viewmodels/auth_view_model.dart';
+import 'package:ajarin_ya/viewmodels/notes_view_model.dart';
 import 'package:ajarin_ya/viewmodels/pomodoro_view_model.dart';
 
 class PomodoroScreen extends StatefulWidget {
@@ -47,9 +49,11 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   bool _isPeersExpanded = false;
   String _activeGroupName = 'Ruang Belajar Aktif';
 
-  // Local session notes
-  final List<String> _sessionNotes = [];
-  final TextEditingController _noteController = TextEditingController();
+  // Note ke Notes Collection
+  final TextEditingController _noteTitleController = TextEditingController();
+  final TextEditingController _noteContentController = TextEditingController();
+  String _noteFolder = 'Umum';
+  bool _isSavingNote = false;
 
   @override
   void initState() {
@@ -324,7 +328,8 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _noteController.dispose();
+    _noteTitleController.dispose();
+    _noteContentController.dispose();
     super.dispose();
   }
 
@@ -463,6 +468,13 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   // Skip Session Mock Button
                   IconButton(
                     onPressed: () {
+                      // Jika skip saat Focus, simpan sesi terlebih dahulu
+                      if (_currentMode == 'Focus') {
+                        context.read<PomodoroViewModel>().saveSession(
+                              'Focus',
+                              _durationMinutesForMode('Focus'),
+                            );
+                      }
                       setState(() {
                         _sessionsCompleted++;
                         _setModeDuration(_currentMode == 'Focus' ? 'Short Break' : 'Focus');
@@ -763,93 +775,141 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   ],
                 ),
               ),
-              // Notes Section
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppTheme.softShadow,
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.edit_note, color: AppTheme.primaryColor, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Catatan Kecil',
-                          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_sessionNotes.isNotEmpty)
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _sessionNotes.length,
-                        itemBuilder: (ctx, idx) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('•', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(_sessionNotes[idx], style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+              // Notes Section — simpan ke Notes Collection
+              Builder(builder: (context) {
+                final notesVm = context.watch<NotesViewModel>();
+                final savableFolders = notesVm.folders
+                    .where((f) => f != 'Semua Catatan')
+                    .toList();
+                // Pastikan _noteFolder valid
+                if (!savableFolders.contains(_noteFolder)) {
+                  _noteFolder = savableFolders.isNotEmpty ? savableFolders.first : 'Umum';
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: AppTheme.softShadow,
+                    border: Border.all(color: Colors.grey.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.edit_note, color: AppTheme.primaryColor, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Buat Catatan',
+                            style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
                       ),
-                    if (_sessionNotes.isNotEmpty) const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _noteController,
-                            maxLines: 1,
-                            decoration: InputDecoration(
-                              hintText: 'Tulis catatan penting saat sesi fokus...',
-                              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _noteTitleController,
+                        decoration: InputDecoration(
+                          hintText: 'Judul catatan...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          filled: true,
+                          fillColor: AppTheme.backgroundColor,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _noteContentController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Tulis catatan penting saat sesi fokus...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          filled: true,
+                          fillColor: AppTheme.backgroundColor,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text('Folder:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.backgroundColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: DropdownButton<String>(
+                                value: _noteFolder,
+                                isExpanded: true,
+                                underline: const SizedBox(),
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                                items: savableFolders
+                                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _noteFolder = v ?? 'Umum'),
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isSavingNote
+                              ? null
+                              : () async {
+                                  final title = _noteTitleController.text.trim();
+                                  final content = _noteContentController.text.trim();
+                                  if (title.isEmpty && content.isEmpty) return;
+                                  setState(() => _isSavingNote = true);
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  await notesVm.createNote(Note(
+                                    id: '',
+                                    title: title.isEmpty ? 'Catatan Pomodoro' : title,
+                                    folder: _noteFolder,
+                                    content: content,
+                                    date: DateTime.now().toIso8601String(),
+                                    isBookmarked: false,
+                                    colorValue: 0xFFFFFFFF,
+                                    ownerId: '',
+                                  ));
+                                  _noteTitleController.clear();
+                                  _noteContentController.clear();
+                                  if (mounted) {
+                                    setState(() => _isSavingNote = false);
+                                    messenger.showSnackBar(
+                                      const SnackBar(content: Text('Catatan berhasil disimpan')),
+                                    );
+                                  }
+                                },
+                          icon: _isSavingNote
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.save_outlined, size: 16),
+                          label: Text(_isSavingNote ? 'Menyimpan...' : 'Simpan ke Catatan'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.add, color: Colors.white),
-                            onPressed: () {
-                              if (_noteController.text.trim().isNotEmpty) {
-                                setState(() {
-                                  _sessionNotes.add(_noteController.text.trim());
-                                  _noteController.clear();
-                                });
-                              }
-                            },
-                          ),
-                        )
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
               const SizedBox(height: 24),
 
               // Riwayat Sesi
