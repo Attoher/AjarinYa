@@ -782,6 +782,16 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                           style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
                                         ),
                                       ),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        onTap: () => _showEditNoteDialog(note, notesVm),
+                                        child: const Icon(Icons.edit_outlined, size: 15, color: AppTheme.textSecondary),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: () => _confirmDeleteNote(note, notesVm),
+                                        child: const Icon(Icons.delete_outline, size: 15, color: Colors.redAccent),
+                                      ),
                                     ],
                                   ),
                                   if (note.content.isNotEmpty) ...[
@@ -814,6 +824,90 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEditNoteDialog(Note note, NotesViewModel notesVm) {
+    final titleCtrl = TextEditingController(text: note.title);
+    final contentCtrl = TextEditingController(text: note.content);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Catatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                labelText: 'Judul',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentCtrl,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'Isi catatan',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              notesVm.updateNote(Note(
+                id: note.id,
+                title: titleCtrl.text.trim(),
+                folder: note.folder,
+                content: contentCtrl.text.trim(),
+                date: note.date,
+                isBookmarked: note.isBookmarked,
+                colorValue: note.colorValue,
+                ownerId: note.ownerId,
+                imageUrl: note.imageUrl,
+              ));
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteNote(Note note, NotesViewModel notesVm) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Catatan?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text('Catatan "${note.title.isEmpty ? '(tanpa judul)' : note.title}" akan dihapus permanen.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              notesVm.deleteNote(note.id);
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
       ),
     );
   }
