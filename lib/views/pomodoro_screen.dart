@@ -152,6 +152,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   }
 
   void _showSessionFinishedDialog() {
+    // Auto-save Focus session to Firestore
+    if (_currentMode == 'Focus') {
+      context.read<PomodoroViewModel>().saveSession('Focus', 25);
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -843,6 +847,108 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // Riwayat Sesi
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: AppTheme.softShadow,
+                  border: Border.all(color: Colors.grey.shade100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Riwayat Sesi',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (pomodoroVm.sessions.isEmpty)
+                      Text(
+                        'Belum ada sesi selesai. Selesaikan sesi fokus untuk menyimpan riwayat.',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: pomodoroVm.sessions.length > 10 ? 10 : pomodoroVm.sessions.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, idx) {
+                          final s = pomodoroVm.sessions[idx];
+                          final d = s.completedAt;
+                          final dateStr = '${d.day.toString().padLeft(2,'0')}/'
+                              '${d.month.toString().padLeft(2,'0')}/'
+                              '${d.year}  '
+                              '${d.hour.toString().padLeft(2,'0')}:'
+                              '${d.minute.toString().padLeft(2,'0')}';
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    s.mode,
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${s.durationMinutes} menit',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        dateStr,
+                                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                  onPressed: () => pomodoroVm.deleteSession(s.id),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 120),
             ],
           ),

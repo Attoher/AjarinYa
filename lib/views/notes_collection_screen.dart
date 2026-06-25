@@ -15,12 +15,12 @@ class NotesCollectionScreen extends StatefulWidget {
 }
 
 class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
-  final List<String> _folders = ['Semua Catatan', 'Kalkulus II', 'Struktur Data', 'UI/UX Design', 'Umum'];
   String _selectedFolder = 'Semua Catatan';
   String _searchQuery = '';
 
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+  final _folderNameController = TextEditingController();
   String _newNoteFolder = 'Umum';
   final _imagePicker = ImagePicker();
   XFile? _selectedNoteImage;
@@ -32,14 +32,83 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
       case 'Struktur Data': return Icons.code;
       case 'UI/UX Design': return Icons.palette;
       case 'Umum': return Icons.menu_book;
-      default: return Icons.folder;
+      default: return Icons.folder_outlined;
     }
+  }
+
+  void _showAddFolderDialog(NotesViewModel vm) {
+    _folderNameController.clear();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Buat Folder Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: TextField(
+          controller: _folderNameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'Nama folder...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () async {
+              final added = await vm.addFolder(_folderNameController.text);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (!added && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Folder sudah ada atau nama kosong.')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Buat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteFolder(NotesViewModel vm, String folder) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Hapus folder "$folder"?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text('Catatan di folder ini akan dipindahkan ke folder Umum.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              vm.deleteFolder(folder);
+              if (_selectedFolder == folder) setState(() => _selectedFolder = 'Semua Catatan');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _folderNameController.dispose();
     super.dispose();
   }
 
@@ -203,7 +272,7 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _newNoteFolder,
-                              items: _folders
+                              items: notesVm.folders
                                   .where((f) => f != 'Semua Catatan')
                                   .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
                                   .toList(),
@@ -376,34 +445,60 @@ class _NotesCollectionScreenState extends State<NotesCollectionScreen> {
                 // Horizontal Folder Toggles
                 SizedBox(
                   height: 38,
-                  child: ListView.builder(
+                  child: ListView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _folders.length,
-                    itemBuilder: (ctx, idx) {
-                      final folder = _folders[idx];
-                      final isSelected = _selectedFolder == folder;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Row(
+                    children: [
+                      ...notesVm.folders.map((folder) {
+                        final isSelected = _selectedFolder == folder;
+                        final isDeletable = !NotesViewModel.defaultFolders.contains(folder);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: GestureDetector(
+                            onLongPress: isDeletable
+                                ? () => _confirmDeleteFolder(notesVm, folder)
+                                : null,
+                            child: ChoiceChip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (folder != 'Semua Catatan') ...[
+                                    Icon(_folderIcon(folder), size: 14, color: isSelected ? Colors.white : Colors.black54),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                                ],
+                              ),
+                              selected: isSelected,
+                              onSelected: (_) => setState(() => _selectedFolder = folder),
+                              backgroundColor: Colors.white,
+                              selectedColor: Colors.teal.shade700,
+                              side: BorderSide(color: isSelected ? Colors.teal.shade700 : Colors.grey.shade300),
+                            ),
+                          ),
+                        );
+                      }),
+                      // Tombol tambah folder
+                      GestureDetector(
+                        onTap: () => _showAddFolderDialog(notesVm),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.teal.shade200),
+                          ),
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (folder != 'Semua Catatan') ...[Icon(_folderIcon(folder), size: 14, color: isSelected ? Colors.white : Colors.black54), const SizedBox(width: 4)],
-                              Text(folder, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 11)),
+                              Icon(Icons.add, size: 14, color: Colors.teal.shade700),
+                              const SizedBox(width: 4),
+                              Text('Folder', style: TextStyle(fontSize: 11, color: Colors.teal.shade700)),
                             ],
                           ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedFolder = folder;
-                            });
-                          },
-                          backgroundColor: Colors.white,
-                          selectedColor: Colors.teal.shade700,
-                          side: BorderSide(color: isSelected ? Colors.teal.shade700 : Colors.grey.shade300),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ajarin_ya/models/pomodoro_preset.dart';
+import 'package:ajarin_ya/models/pomodoro_session.dart';
 import 'package:ajarin_ya/models/result_state.dart';
 import 'package:ajarin_ya/repositories/pomodoro_repository.dart';
 
@@ -10,6 +11,7 @@ class PomodoroViewModel extends ChangeNotifier {
   PomodoroViewModel({PomodoroRepository? repository})
       : _repository = repository ?? PomodoroRepositoryImpl() {
     loadPresets();
+    loadSessions();
   }
 
   List<PomodoroPreset> _presets = [];
@@ -52,6 +54,42 @@ class PomodoroViewModel extends ChangeNotifier {
   Future<void> deletePreset(String presetId) async {
     _repository.deletePreset(presetId).listen((result) {
       if (result is ResultStateSuccess<void>) loadPresets();
+    });
+  }
+
+  // ── Sessions ───────────────────────────────────────────────────────────────
+
+  List<PomodoroSession> _sessions = [];
+  List<PomodoroSession> get sessions => _sessions;
+
+  Future<void> loadSessions() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+    _repository.getSessions(userId).listen((result) {
+      if (result is ResultStateSuccess<List<PomodoroSession>>) {
+        _sessions = result.data;
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<void> saveSession(String mode, int durationMinutes) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+    final session = PomodoroSession(
+      ownerId: userId,
+      mode: mode,
+      durationMinutes: durationMinutes,
+      completedAt: DateTime.now(),
+    );
+    _repository.saveSession(session).listen((result) {
+      if (result is ResultStateSuccess<void>) loadSessions();
+    });
+  }
+
+  Future<void> deleteSession(String sessionId) async {
+    _repository.deleteSession(sessionId).listen((result) {
+      if (result is ResultStateSuccess<void>) loadSessions();
     });
   }
 }
