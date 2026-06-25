@@ -1,6 +1,5 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:ajarin_ya/models/note.dart';
 import 'package:ajarin_ya/theme/app_theme.dart';
@@ -27,11 +26,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   String _selectedAmbient = 'None';
   final List<String> _ambientSounds = ['None', 'Lofi Cafe', 'Hujan Deras', 'Hutan Rileks'];
 
-  // Online study group simulation
-  List<Map<String, String>> _onlinePeers = [];
-  bool _isLoadingPeers = true;
-  bool _isPeersExpanded = false;
-  String _activeGroupName = 'Ruang Belajar Aktif';
 
   // Note ke Notes Collection
   final TextEditingController _noteTitleController = TextEditingController();
@@ -46,60 +40,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchGroupMembers();
-    });
-  }
-
-  Future<void> _fetchGroupMembers() async {
-    final authVm = Provider.of<AuthViewModel>(context, listen: false);
-    final activeGroupId = authVm.user?.activeGroupId;
-    
-    if (activeGroupId == null) {
-      if (mounted) {
-        setState(() {
-          _onlinePeers = [];
-          _isLoadingPeers = false;
-        });
-      }
-      return;
-    }
-
-    try {
-      final groupDoc = await FirebaseFirestore.instance.collection('groups').doc(activeGroupId).get();
-      if (!groupDoc.exists) {
-        if (mounted) setState(() => _isLoadingPeers = false);
-        return;
-      }
-      
-      final groupName = groupDoc.data()?['name'] ?? 'Ruang Belajar Aktif';
-      final memberIds = List<String>.from(groupDoc.data()?['memberIds'] ?? []);
-      
-      List<Map<String, String>> peers = [];
-      for (final id in memberIds) {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(id).get();
-        if (userDoc.exists) {
-          final data = userDoc.data()!;
-          peers.add({
-            'name': data['displayName'] ?? 'Pengguna',
-            'status': 'Online',
-            'time': 'Sekarang',
-          });
-        }
-      }
-      
-      if (mounted) {
-        setState(() {
-          _activeGroupName = groupName;
-          _onlinePeers = peers;
-          _isLoadingPeers = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingPeers = false);
-      }
-    }
   }
 
   void _startTimer() {
@@ -410,120 +350,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Online Study Room Simulation Block
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppTheme.softShadow,
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(Icons.people_alt, color: Colors.teal, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _activeGroupName,
-                                  style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${_onlinePeers.length} Online',
-                            style: const TextStyle(color: Colors.teal, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (_isLoadingPeers)
-                      const Center(child: CircularProgressIndicator())
-                    else if (_onlinePeers.isEmpty)
-                      const Text('Belum ada anggota yang bergabung.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
-                    else
-                      Column(
-                        children: [
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _isPeersExpanded ? _onlinePeers.length : (_onlinePeers.length > 3 ? 3 : _onlinePeers.length),
-                            itemBuilder: (ctx, idx) {
-                              final peer = _onlinePeers[idx];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 14,
-                                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                      child: Text(
-                                        peer['name']!.isNotEmpty ? peer['name']![0].toUpperCase() : '?',
-                                        style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            peer['name']!,
-                                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${peer['status']}',
-                                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
-                                          ),
-                                          const SizedBox(height: 1),
-                                          Text(
-                                            'Mulai sejak ${peer['time']}',
-                                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.circle, color: Colors.teal, size: 8),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          if (_onlinePeers.length > 3)
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _isPeersExpanded = !_isPeersExpanded;
-                                });
-                              },
-                              child: Text(
-                                _isPeersExpanded ? 'Tampilkan Lebih Sedikit' : 'Tampilkan ${_onlinePeers.length - 3} Lainnya',
-                                style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12),
-                              ),
-                            )
-                        ],
-                      ),
-                  ],
-                ),
-              ),
               // Notes Section — simpan ke Notes Collection
               Builder(builder: (context) {
                 final notesVm = context.watch<NotesViewModel>();
