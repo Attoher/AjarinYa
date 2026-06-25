@@ -41,7 +41,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   bool _isSavingNote = false;
 
   // Filter untuk tampilan daftar catatan di tab Pomodoro
-  String _noteViewFilter = 'Semua'; // 'Semua' | 'Diri Sendiri'
+  String _noteViewFilter = 'Umum'; // 'Umum' | 'Diri Sendiri'
 
   @override
   void initState() {
@@ -690,7 +690,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                 final allNotes = notesVm.notes;
                 final filtered = _noteViewFilter == 'Diri Sendiri'
                     ? allNotes.where((n) => n.folder != 'Umum').toList()
-                    : allNotes;
+                    : allNotes.where((n) => n.folder == 'Umum').toList();
 
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -714,7 +714,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                             ),
                           ),
                           // Filter chips
-                          _buildNoteFilterChip('Semua'),
+                          _buildNoteFilterChip('Umum'),
                           const SizedBox(width: 6),
                           _buildNoteFilterChip('Diri Sendiri'),
                         ],
