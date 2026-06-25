@@ -55,11 +55,18 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   String _noteFolder = 'Umum';
   bool _isSavingNote = false;
 
+  // Filter untuk tampilan daftar catatan di tab Pomodoro
+  String _noteViewFilter = 'Semua'; // 'Semua' | 'Diri Sendiri'
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchGroupMembers();
+      // Reload karena ViewModel dibuat sebelum user login
+      final vm = context.read<PomodoroViewModel>();
+      vm.loadPresets();
+      vm.loadSessions();
     });
   }
 
@@ -910,7 +917,122 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   ),
                 );
               }),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Tampilkan Catatan — Semua & Diri Sendiri
+              Builder(builder: (context) {
+                final notesVm = context.watch<NotesViewModel>();
+                final allNotes = notesVm.notes;
+                final filtered = _noteViewFilter == 'Diri Sendiri'
+                    ? allNotes.where((n) => n.folder != 'Umum').toList()
+                    : allNotes;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: AppTheme.softShadow,
+                    border: Border.all(color: Colors.grey.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.notes_rounded, color: AppTheme.primaryColor, size: 20),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Catatan Saya',
+                              style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          // Filter chips
+                          _buildNoteFilterChip('Semua'),
+                          const SizedBox(width: 6),
+                          _buildNoteFilterChip('Diri Sendiri'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (filtered.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              'Belum ada catatan',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filtered.length > 5 ? 5 : filtered.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (ctx, i) {
+                            final note = filtered[i];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Color(note.colorValue).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Color(note.colorValue).withValues(alpha: 0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          note.title.isEmpty ? '(tanpa judul)' : note.title,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          note.folder,
+                                          style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (note.content.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      note.content,
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      if (filtered.length > 5)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '+${filtered.length - 5} catatan lainnya — lihat di tab Catatan',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
 
               // Riwayat Sesi
               Container(
@@ -1014,6 +1136,28 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 
               const SizedBox(height: 120),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoteFilterChip(String label) {
+    final isSelected = _noteViewFilter == label;
+    return GestureDetector(
+      onTap: () => setState(() => _noteViewFilter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : AppTheme.textSecondary,
           ),
         ),
       ),
