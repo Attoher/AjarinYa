@@ -599,10 +599,19 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                           const SizedBox(width: 8),
                           _buildSaveTargetChip('Diri Sendiri', onTap: () {
                             final personal = savableFolders.where((f) => f != 'Umum').toList();
-                            setState(() {
-                              _noteSaveTarget = 'Diri Sendiri';
-                              if (personal.isNotEmpty) _noteFolder = personal.first;
-                            });
+                            if (personal.isEmpty) {
+                              // Auto-buat folder "Diri Sendiri" jika belum ada
+                              notesVm.addFolder('Diri Sendiri');
+                              setState(() {
+                                _noteSaveTarget = 'Diri Sendiri';
+                                _noteFolder = 'Diri Sendiri';
+                              });
+                            } else {
+                              setState(() {
+                                _noteSaveTarget = 'Diri Sendiri';
+                                _noteFolder = personal.first;
+                              });
+                            }
                           }),
                         ],
                       ),
@@ -614,16 +623,11 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                               .where((f) => f != 'Umum')
                               .toList();
                           if (personalFolders.isEmpty) {
-                            return Text(
-                              'Belum ada folder personal. Buat folder di tab Catatan.',
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                            );
+                            return const SizedBox.shrink();
                           }
-                          if (!personalFolders.contains(_noteFolder)) {
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => setState(() => _noteFolder = personalFolders.first),
-                            );
-                          }
+                          final currentVal = personalFolders.contains(_noteFolder)
+                              ? _noteFolder
+                              : personalFolders.first;
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
@@ -631,16 +635,14 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: DropdownButton<String>(
-                              value: personalFolders.contains(_noteFolder)
-                                  ? _noteFolder
-                                  : personalFolders.first,
+                              value: currentVal,
                               isExpanded: true,
                               underline: const SizedBox(),
                               style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                               items: personalFolders
                                   .map((f) => DropdownMenuItem(value: f, child: Text(f)))
                                   .toList(),
-                              onChanged: (v) => setState(() => _noteFolder = v ?? personalFolders.first),
+                              onChanged: (v) => setState(() => _noteFolder = v ?? currentVal),
                             ),
                           );
                         }),
