@@ -590,9 +590,20 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                       // Target simpan: Umum atau Diri Sendiri
                       Row(
                         children: [
-                          _buildSaveTargetChip('Umum'),
+                          _buildSaveTargetChip('Umum', onTap: () {
+                            setState(() {
+                              _noteSaveTarget = 'Umum';
+                              _noteFolder = 'Umum';
+                            });
+                          }),
                           const SizedBox(width: 8),
-                          _buildSaveTargetChip('Diri Sendiri'),
+                          _buildSaveTargetChip('Diri Sendiri', onTap: () {
+                            final personal = savableFolders.where((f) => f != 'Umum').toList();
+                            setState(() {
+                              _noteSaveTarget = 'Diri Sendiri';
+                              if (personal.isNotEmpty) _noteFolder = personal.first;
+                            });
+                          }),
                         ],
                       ),
                       // Sub-dropdown folder personal (muncul jika Diri Sendiri dipilih)
@@ -805,13 +816,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     );
   }
 
-  Widget _buildSaveTargetChip(String label) {
+  Widget _buildSaveTargetChip(String label, {required VoidCallback onTap}) {
     final isSelected = _noteSaveTarget == label;
     return GestureDetector(
-      onTap: () => setState(() {
-        _noteSaveTarget = label;
-        if (label == 'Umum') _noteFolder = 'Umum';
-      }),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
