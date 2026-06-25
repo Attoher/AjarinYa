@@ -694,6 +694,7 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                                   'Dibuat oleh: ${spot.createdByName ?? spot.createdBy}',
                                   style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                                 ),
+                                if (spot.createdAt != null)
                                   Text(
                                     '${spot.createdAt!.day.toString().padLeft(2, '0')}/'
                                     '${spot.createdAt!.month.toString().padLeft(2, '0')}/'
