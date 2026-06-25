@@ -252,6 +252,7 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                       location: GeoPoint(dialogLat, dialogLng),
                       createdBy: existingSpot?.createdBy ?? creatorUid,
                       createdByName: existingSpot?.createdByName ?? creatorName,
+                      createdAt: existingSpot?.createdAt ?? DateTime.now(),
                       imageUrl: imageUrl,
                     );
                     if (existingSpot == null) {
@@ -686,9 +687,23 @@ class _StudySpotScreenState extends State<StudySpotScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Dibuat oleh: ${spot.createdByName ?? spot.createdBy}',
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Dibuat oleh: ${spot.createdByName ?? spot.createdBy}',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                                ),
+                                if (spot.createdAt != null)
+                                  Text(
+                                    '${spot.createdAt!.day.toString().padLeft(2, '0')}/'
+                                    '${spot.createdAt!.month.toString().padLeft(2, '0')}/'
+                                    '${spot.createdAt!.year}  '
+                                    '${spot.createdAt!.hour.toString().padLeft(2, '0')}:'
+                                    '${spot.createdAt!.minute.toString().padLeft(2, '0')}',
+                                    style: TextStyle(color: Colors.grey.shade400, fontSize: 10),
+                                  ),
+                              ],
                             ),
                             if (spot.createdBy == currentUserId)
                               Row(

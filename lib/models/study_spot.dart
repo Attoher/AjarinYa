@@ -13,6 +13,7 @@ class StudySpot {
   GeoPoint? location;
   String createdBy;
   String? createdByName;
+  DateTime? createdAt;
   String? imageUrl;
 
   StudySpot({
@@ -23,6 +24,7 @@ class StudySpot {
     this.location = const GeoPoint(0.0, 0.0),
     this.createdBy = '',
     this.createdByName,
+    this.createdAt,
     this.imageUrl,
   });
 
@@ -68,6 +70,7 @@ class StudySpot {
         location: safeLocationParser(json['location']),
         createdBy: json['createdBy'] as String? ?? '',
         createdByName: json['createdByName'] as String?,
+        createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
         imageUrl: json['imageUrl'] as String?,
       );
     } catch (e, stackTrace) {
@@ -92,6 +95,7 @@ class StudySpot {
       'location': location,
       'createdBy': createdBy,
       'createdByName': createdByName,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
     };
   }
