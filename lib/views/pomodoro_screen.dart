@@ -37,6 +37,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   final TextEditingController _noteTitleController = TextEditingController();
   final TextEditingController _noteContentController = TextEditingController();
   String _noteFolder = 'Umum';
+  String _noteSaveTarget = 'Umum'; // 'Umum' | 'Diri Sendiri'
   bool _isSavingNote = false;
 
   // Filter untuk tampilan daftar catatan di tab Pomodoro
@@ -586,31 +587,53 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      // Target simpan: Umum atau Diri Sendiri
                       Row(
                         children: [
-                          const Text('Folder:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          _buildSaveTargetChip('Umum'),
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundColor,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: DropdownButton<String>(
-                                value: _noteFolder,
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
-                                items: savableFolders
-                                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                                    .toList(),
-                                onChanged: (v) => setState(() => _noteFolder = v ?? 'Umum'),
-                              ),
-                            ),
-                          ),
+                          _buildSaveTargetChip('Diri Sendiri'),
                         ],
                       ),
+                      // Sub-dropdown folder personal (muncul jika Diri Sendiri dipilih)
+                      if (_noteSaveTarget == 'Diri Sendiri') ...[
+                        const SizedBox(height: 8),
+                        Builder(builder: (_) {
+                          final personalFolders = savableFolders
+                              .where((f) => f != 'Umum')
+                              .toList();
+                          if (personalFolders.isEmpty) {
+                            return Text(
+                              'Belum ada folder personal. Buat folder di tab Catatan.',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            );
+                          }
+                          if (!personalFolders.contains(_noteFolder)) {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => setState(() => _noteFolder = personalFolders.first),
+                            );
+                          }
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButton<String>(
+                              value: personalFolders.contains(_noteFolder)
+                                  ? _noteFolder
+                                  : personalFolders.first,
+                              isExpanded: true,
+                              underline: const SizedBox(),
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                              items: personalFolders
+                                  .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                                  .toList(),
+                              onChanged: (v) => setState(() => _noteFolder = v ?? personalFolders.first),
+                            ),
+                          );
+                        }),
+                      ],
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
@@ -623,10 +646,11 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                                   if (title.isEmpty && content.isEmpty) return;
                                   setState(() => _isSavingNote = true);
                                   final messenger = ScaffoldMessenger.of(context);
+                                  final targetFolder = _noteSaveTarget == 'Umum' ? 'Umum' : _noteFolder;
                                   await notesVm.createNote(Note(
                                     id: '',
                                     title: title.isEmpty ? 'Catatan Pomodoro' : title,
-                                    folder: _noteFolder,
+                                    folder: targetFolder,
                                     content: content,
                                     date: DateTime.now().toIso8601String(),
                                     isBookmarked: false,
@@ -775,6 +799,34 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               }),
               const SizedBox(height: 120),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveTargetChip(String label) {
+    final isSelected = _noteSaveTarget == label;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _noteSaveTarget = label;
+        if (label == 'Umum') _noteFolder = 'Umum';
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : AppTheme.textSecondary,
           ),
         ),
       ),
